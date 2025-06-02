@@ -1,5 +1,7 @@
+import { Button } from "@/components/ui/button";
+
 const Site = () => {
-  return <div>Site</div>;
+  return <Button>Click me</Button>;
 };
 
 export default Site;
