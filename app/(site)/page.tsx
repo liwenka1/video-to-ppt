@@ -1,21 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { 
-  Play, 
-  Upload, 
-  Zap, 
-  Shield, 
-  Download, 
+import {
   ArrowRight,
-  Sparkles,
-  Video,
+  ChevronDown,
+  Download,
   FileText,
   Globe,
   Monitor,
-  ChevronDown
+  Play,
+  Shield,
+  Sparkles,
+  Upload,
+  Video,
+  Zap,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 interface FeatureCardProps {
@@ -55,7 +56,7 @@ const AnimatedBackground = () => {
       {/* Gradient overlays */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-teal-900/20" />
       <div className="absolute inset-0 bg-gradient-to-tr from-zinc-900 via-zinc-900/80 to-zinc-900/60" />
-      
+
       {/* Animated cursor follower */}
       <div
         className="pointer-events-none absolute h-96 w-96 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-3xl transition-all duration-300"
@@ -72,13 +73,8 @@ const AnimatedBackground = () => {
 
 const HomePage = () => {
   const [currentFeature, setCurrentFeature] = useState(0);
-  
-  const features = [
-    "智能视频分析",
-    "实时内容提取", 
-    "自动PPT生成",
-    "多格式支持"
-  ];
+
+  const features = ["智能视频分析", "实时内容提取", "自动PPT生成", "多格式支持"];
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -90,7 +86,7 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-zinc-950 text-white overflow-hidden">
       <AnimatedBackground />
-      
+
       {/* Header */}
       <header className="relative z-20 border-b border-zinc-800/50 backdrop-blur-sm">
         <div className="container mx-auto px-6 py-4">
@@ -101,7 +97,7 @@ const HomePage = () => {
               </div>
               <span className="text-xl font-bold">Video2PPT</span>
             </div>
-            
+
             <div className="flex items-center space-x-6">
               <Link href="#features" className="text-zinc-400 hover:text-white transition-colors">
                 功能
@@ -140,19 +136,21 @@ const HomePage = () => {
               </h1>
 
               <p className="text-xl text-zinc-400 mb-8 leading-relaxed">
-                基于WebAV和FFmpeg的先进技术，自动识别视频关键内容，
-                生成专业幻灯片。支持本地视频、在线链接和实时录屏。
+                基于WebAV和FFmpeg的先进技术，自动识别视频关键内容， 生成专业幻灯片。支持本地视频、在线链接和实时录屏。
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <Link href="/screen-recording">
-                  <Button size="lg" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0">
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0"
+                  >
                     <Monitor className="mr-2 h-5 w-5" />
                     开始录屏
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
-                
+
                 <Link href="/local-video">
                   <Button size="lg" variant="outline" className="border-zinc-700 text-white hover:bg-zinc-800">
                     <Upload className="mr-2 h-5 w-5" />
@@ -162,10 +160,8 @@ const HomePage = () => {
               </div>
 
               <div className="text-sm text-zinc-500">
-                当前正在处理: 
-                <span className="ml-2 text-blue-400 font-medium">
-                  {features[currentFeature]}
-                </span>
+                当前正在处理:
+                <span className="ml-2 text-blue-400 font-medium">{features[currentFeature]}</span>
               </div>
             </div>
 
@@ -178,7 +174,7 @@ const HomePage = () => {
                       <Play className="h-16 w-16 text-zinc-400" />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-zinc-400">处理进度</span>
@@ -225,35 +221,35 @@ const HomePage = () => {
               description="使用WebAV技术进行深度视频分析，自动识别关键帧和重要内容节点"
               delay={0}
             />
-            
+
             <FeatureCard
               icon={<Zap className="h-6 w-6 text-white" />}
               title="高效内容提取"
               description="基于FFmpeg的视频处理引擎，快速提取高质量图像和关键信息"
               delay={0.1}
             />
-            
+
             <FeatureCard
               icon={<FileText className="h-6 w-6 text-white" />}
               title="自动PPT生成"
               description="智能布局算法，自动生成专业美观的PowerPoint演示文稿"
               delay={0.2}
             />
-            
+
             <FeatureCard
               icon={<Globe className="h-6 w-6 text-white" />}
               title="多平台支持"
               description="支持YouTube、Bilibili等主流视频平台，一键导入在线视频"
               delay={0.3}
             />
-            
+
             <FeatureCard
               icon={<Monitor className="h-6 w-6 text-white" />}
               title="实时录屏"
               description="内置高清录屏功能，边录制边处理，实时生成演示内容"
               delay={0.4}
             />
-            
+
             <FeatureCard
               icon={<Shield className="h-6 w-6 text-white" />}
               title="隐私保护"
@@ -273,9 +269,7 @@ const HomePage = () => {
                 使用方法
               </span>
             </h2>
-            <p className="text-xl text-zinc-400">
-              三步完成视频到PPT的智能转换
-            </p>
+            <p className="text-xl text-zinc-400">三步完成视频到PPT的智能转换</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-12">
@@ -284,20 +278,20 @@ const HomePage = () => {
                 step: "01",
                 title: "上传或录制",
                 description: "选择本地视频文件、输入在线视频链接，或直接开始屏幕录制",
-                icon: <Upload className="h-8 w-8" />
+                icon: <Upload className="h-8 w-8" />,
               },
               {
-                step: "02", 
+                step: "02",
                 title: "智能处理",
                 description: "AI系统自动分析视频内容，识别关键帧，提取重要信息和文字",
-                icon: <Zap className="h-8 w-8" />
+                icon: <Zap className="h-8 w-8" />,
               },
               {
                 step: "03",
                 title: "生成下载",
                 description: "系统自动生成专业PPT文件，支持多种格式导出和在线预览",
-                icon: <Download className="h-8 w-8" />
-              }
+                icon: <Download className="h-8 w-8" />,
+              },
             ].map((item, index) => (
               <div key={index} className="text-center">
                 <div className="relative mb-8">
@@ -321,21 +315,22 @@ const HomePage = () => {
         <div className="container mx-auto px-6">
           <div className="text-center">
             <div className="rounded-2xl bg-gradient-to-br from-blue-900/30 to-purple-900/30 border border-zinc-700/50 p-12 backdrop-blur-sm">
-              <h2 className="text-4xl lg:text-5xl font-bold mb-6">
-                准备好开始了吗？
-              </h2>
+              <h2 className="text-4xl lg:text-5xl font-bold mb-6">准备好开始了吗？</h2>
               <p className="text-xl text-zinc-400 mb-8 max-w-2xl mx-auto">
                 立即体验Video2PPT的强大功能，将您的视频内容转换为专业演示文稿
               </p>
-              
+
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/screen-recording">
-                  <Button size="lg" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  >
                     <Monitor className="mr-2 h-5 w-5" />
                     开始录屏转换
                   </Button>
                 </Link>
-                
+
                 <Link href="/local-video">
                   <Button size="lg" variant="outline" className="border-zinc-700 text-white hover:bg-zinc-800">
                     <Upload className="mr-2 h-5 w-5" />
@@ -358,10 +353,8 @@ const HomePage = () => {
               </div>
               <span className="text-xl font-bold">Video2PPT</span>
             </div>
-            
-            <div className="text-zinc-400 text-sm">
-              © 2024 Video2PPT. 基于WebAV和FFmpeg技术构建
-            </div>
+
+            <div className="text-zinc-400 text-sm">© 2024 Video2PPT. 基于WebAV和FFmpeg技术构建</div>
           </div>
         </div>
       </footer>

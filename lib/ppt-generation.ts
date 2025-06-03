@@ -17,13 +17,13 @@ export async function createAndDownloadPPT(
   try {
     // Dynamic import to avoid SSR issues
     const PptxGenJS = (await import("pptxgenjs")).default;
-    
+
     if (screenshots.length === 0) {
       throw new Error("No screenshots available to create PPT");
     }
 
     const pptx = new PptxGenJS();
-    
+
     // Set presentation properties
     pptx.author = "Video2PPT";
     pptx.company = "Video2PPT";
@@ -213,7 +213,7 @@ export async function createPPTFromVideoAnalysis(
       // Add key frames
       for (let i = 0; i < analysisResult.keyFrames.length; i++) {
         const slide = pptx.addSlide();
-        
+
         slide.addImage({
           path: analysisResult.keyFrames[i],
           x: 0.5,
@@ -259,4 +259,4 @@ export function convertScreenshotsToSlideData(screenshots: string[]): PPTSlideDa
     title: `Slide ${index + 1}`,
     description: `Screenshot captured at frame ${index + 1}`,
   }));
-} 
+}

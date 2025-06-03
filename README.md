@@ -5,6 +5,7 @@
 ## ✨ 功能特性
 
 ### 📹 视频处理能力
+
 - **屏幕录制**: 实时屏幕录制，支持系统音频和麦克风
 - **本地视频分析**: 上传本地视频文件进行智能分析
 - **在线视频处理**: 支持 YouTube、Bilibili、Vimeo 等平台链接
@@ -12,6 +13,7 @@
 - **动态阈值计算**: 自适应视频内容计算最佳差异阈值
 
 ### 🎯 核心技术栈
+
 - **WebAV**: 使用最新的 WebCodecs 技术进行高性能视频处理
 - **FFmpeg.wasm**: 视频格式转换和编码处理
 - **Next.js 15**: 现代化的 React 框架
@@ -20,6 +22,7 @@
 - **Shadcn/ui**: 高质量的 UI 组件库
 
 ### 🚀 高级功能
+
 - **实时截图**: 录制过程中自动截图和差异检测
 - **智能分析**: WebAV 驱动的视频内容分析
 - **PPT 生成**: 一键导出为 PowerPoint 演示文稿
@@ -31,17 +34,20 @@
 ### 从原版 video2ppt 的改进
 
 1. **现代化架构**
+
    - 从纯 JavaScript 迁移到 TypeScript + Next.js
    - 使用 WebAV 替代传统视频处理方式
    - 保持 FFmpeg 用于格式转换
 
 2. **用户体验优化**
+
    - nvg8.io 风格的现代化 UI 设计
    - 深色主题与渐变背景
    - 流畅的动画和交互反馈
    - 玻璃态效果和现代排版
 
 3. **性能提升**
+
    - WebCodecs 技术提供更高性能
    - 客户端处理保护隐私
    - 智能算法减少冗余帧
@@ -56,6 +62,7 @@
 ## 📦 安装使用
 
 ### 环境要求
+
 - Node.js 18+
 - pnpm (推荐) 或 npm
 - 现代浏览器 (Chrome 102+)
@@ -79,6 +86,7 @@ pnpm start
 ### 浏览器兼容性
 
 由于使用了 WebCodecs 和 SharedArrayBuffer，需要现代浏览器支持：
+
 - Chrome 102+
 - Edge 102+
 - 需要 HTTPS 环境（本地开发除外）
@@ -123,7 +131,7 @@ function calculateImageDifference(imgData1: ImageData, imgData2: ImageData): num
     // 转换为亮度值
     const luminance1 = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     const luminance2 = 0.2126 * r2 + 0.7152 * g2 + 0.0722 * b2;
-    
+
     const diff = luminance1 - luminance2;
     sumOfSquares += diff * diff;
   }
@@ -139,13 +147,13 @@ function calculateImageDifference(imgData1: ImageData, imgData2: ImageData): num
 async function preprocessVideo(video: HTMLVideoElement, canvas: HTMLCanvasElement): Promise<number> {
   // 采样视频帧
   const sampleCount = Math.min(50, Math.max(20, Math.floor(duration / 10)));
-  
+
   // 计算差异度分布
   const differences: number[] = [];
-  
+
   // 使用中位数作为基准阈值
   const medianDiff = sortedDifferences[Math.floor(differences.length / 2)];
-  
+
   // 设置合理边界
   return Math.max(10, Math.min(medianDiff, 60));
 }
@@ -154,6 +162,7 @@ async function preprocessVideo(video: HTMLVideoElement, canvas: HTMLCanvasElemen
 ## 🎨 UI 设计特色
 
 ### nvg8.io 风格设计
+
 - **深色主题**: 专业的深色配色方案
 - **渐变背景**: 蓝色/紫色/青色渐变
 - **玻璃态效果**: backdrop-blur 和半透明元素
@@ -161,6 +170,7 @@ async function preprocessVideo(video: HTMLVideoElement, canvas: HTMLCanvasElemen
 - **响应式布局**: 适配桌面和移动设备
 
 ### 组件设计原则
+
 - **功能优先**: 清晰的视觉层次
 - **状态反馈**: 实时的处理状态显示
 - **错误处理**: 友好的错误提示界面
@@ -171,15 +181,19 @@ async function preprocessVideo(video: HTMLVideoElement, canvas: HTMLCanvasElemen
 ### 常见问题
 
 1. **FFmpeg 导入错误**
+
    ```
    Module not found: Can't resolve <dynamic>
    ```
+
    **解决方案**: 已在 `next.config.ts` 中配置 webpack 解决
 
 2. **WebAV 类型错误**
+
    ```
    Cannot find module '@webav/av-cliper'
    ```
+
    **解决方案**: 确保安装了正确版本的 WebAV 包
 
 3. **SharedArrayBuffer 错误**
@@ -191,6 +205,7 @@ async function preprocessVideo(video: HTMLVideoElement, canvas: HTMLCanvasElemen
 ### 开发环境设置
 
 确保浏览器支持以下特性：
+
 - WebCodecs API
 - SharedArrayBuffer
 - 屏幕共享 API
@@ -209,6 +224,7 @@ async function preprocessVideo(video: HTMLVideoElement, canvas: HTMLCanvasElemen
 ### 代码规范
 
 项目使用以下工具确保代码质量：
+
 - **ESLint**: 代码质量检查
 - **Prettier**: 代码格式化
 - **TypeScript**: 类型检查

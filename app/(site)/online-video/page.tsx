@@ -1,23 +1,24 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
+import Link from "next/link";
 import {
-  Globe,
-  Play,
-  Download,
+  AlertCircle,
   ArrowLeft,
   CheckCircle,
-  AlertCircle,
-  Loader2,
+  Download,
   ExternalLink,
+  Globe,
+  Loader2,
+  Play,
   Video,
   Zap,
 } from "lucide-react";
-import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import { createAndDownloadPPT } from "@/lib/ppt-generation";
-import { extractFramesFromVideo, preprocessVideo } from "@/lib/video-processing";
 import { formatTime } from "@/lib/utils";
+import { extractFramesFromVideo, preprocessVideo } from "@/lib/video-processing";
 
 type ProcessingState = "idle" | "loading" | "analyzing" | "extracting" | "completed" | "error";
 
@@ -30,7 +31,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
   const [processingState, setProcessingState] = useState<ProcessingState>("idle");
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string>("");
-  
+
   // Video analysis results
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [videoMetadata, setVideoMetadata] = useState<{
@@ -38,7 +39,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
     duration: number;
     thumbnail: string;
   } | null>(null);
-  
+
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -55,7 +56,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
   const validateUrl = (url: string): boolean => {
     try {
       new URL(url);
-      return supportedPlatforms.some(platform => platform.pattern.test(url));
+      return supportedPlatforms.some((platform) => platform.pattern.test(url));
     } catch {
       return false;
     }
@@ -83,7 +84,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
       // 2. Proxy/CORS handling for direct video links
       // 3. Video conversion if needed
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Mock video metadata
       setVideoMetadata({
@@ -119,7 +120,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
+
       // Wait for video to load
       await new Promise<void>((resolve, reject) => {
         video.onloadedmetadata = () => resolve();
@@ -128,7 +129,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
 
       // Preprocess to get dynamic threshold
       const dynamicThreshold = await preprocessVideo(video, canvas);
-      
+
       setProcessingState("extracting");
 
       // Extract frames using improved method
@@ -145,15 +146,14 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
             setProgress(progressPercent);
           },
           onFrameCaptured: (blob, url) => {
-            setScreenshots(prev => [...prev, url]);
+            setScreenshots((prev) => [...prev, url]);
           },
           onComplete: () => {
             setProcessingState("completed");
             setProgress(100);
-          }
+          },
         }
       );
-      
     } catch (error) {
       console.error("Error processing video:", error);
       setError("视频处理失败，请重试");
@@ -202,7 +202,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
               <ArrowLeft className="h-5 w-5" />
               <span>返回首页</span>
             </Link>
-            
+
             <div className="flex items-center space-x-2">
               <Globe className="h-6 w-6 text-blue-400" />
               <span className="text-xl font-semibold">在线视频</span>
@@ -222,9 +222,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-2xl font-semibold mb-4">输入视频链接</h2>
-                    <p className="text-zinc-400 mb-6">
-                      支持YouTube、Bilibili、Vimeo等平台，以及直接视频文件链接
-                    </p>
+                    <p className="text-zinc-400 mb-6">支持YouTube、Bilibili、Vimeo等平台，以及直接视频文件链接</p>
                   </div>
 
                   <div className="space-y-4">
@@ -282,9 +280,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
                       </div>
                       <div className="flex-1">
                         <h3 className="font-semibold truncate">{videoMetadata.title}</h3>
-                        <p className="text-sm text-zinc-400">
-                          时长: {formatTime(videoMetadata.duration)}
-                        </p>
+                        <p className="text-sm text-zinc-400">时长: {formatTime(videoMetadata.duration)}</p>
                       </div>
                       <ExternalLink className="h-5 w-5 text-zinc-400" />
                     </div>
@@ -300,7 +296,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
                       preload="metadata"
                       crossOrigin="anonymous"
                     />
-                    
+
                     {/* Processing Overlay */}
                     {(processingState === "analyzing" || processingState === "extracting") && (
                       <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
@@ -345,7 +341,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
                           <Download className="mr-2 h-5 w-5" />
                           下载PPT ({screenshots.length}张)
                         </Button>
-                        
+
                         <Button
                           onClick={handleProcessVideo}
                           variant="outline"
@@ -382,7 +378,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
             {/* Status */}
             <div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
               <h3 className="text-lg font-semibold mb-4">处理状态</h3>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">当前状态</span>
@@ -402,14 +398,14 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
                     </span>
                   </div>
                 </div>
-                
+
                 {(processingState === "analyzing" || processingState === "extracting") && (
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-400">进度</span>
                     <span>{progress}%</span>
                   </div>
                 )}
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">提取帧数</span>
                   <span>{screenshots.length}</span>
@@ -421,23 +417,17 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
             {screenshots.length > 0 && (
               <div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
                 <h3 className="text-lg font-semibold mb-4">预览</h3>
-                
+
                 <div className="space-y-3">
                   {screenshots.slice(0, 3).map((screenshot, index) => (
                     <div key={index} className="aspect-video rounded-lg overflow-hidden border border-zinc-600/30">
-                      <img
-                        src={screenshot}
-                        alt={`Frame ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={screenshot} alt={`Frame ${index + 1}`} className="w-full h-full object-cover" />
                     </div>
                   ))}
                 </div>
-                
+
                 {screenshots.length > 3 && (
-                  <p className="text-sm text-zinc-400 mt-3 text-center">
-                    还有 {screenshots.length - 3} 帧...
-                  </p>
+                  <p className="text-sm text-zinc-400 mt-3 text-center">还有 {screenshots.length - 3} 帧...</p>
                 )}
               </div>
             )}
@@ -445,7 +435,7 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
             {/* Tips */}
             <div className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 p-6 backdrop-blur-sm">
               <h3 className="text-lg font-semibold mb-4 text-blue-300">使用说明</h3>
-              
+
               <ul className="space-y-2 text-sm text-blue-200">
                 <li>• 支持主流视频平台链接</li>
                 <li>• 智能差异检测算法</li>
@@ -463,4 +453,4 @@ const OnlineVideoPage = ({}: OnlineVideoPageProps) => {
   );
 };
 
-export default OnlineVideoPage; 
+export default OnlineVideoPage;

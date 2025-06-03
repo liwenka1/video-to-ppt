@@ -1,24 +1,25 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
+import Link from "next/link";
 import {
-  Upload,
-  Play,
-  Pause,
-  Download,
-  FileVideo,
+  AlertCircle,
   ArrowLeft,
   CheckCircle,
-  AlertCircle,
+  Download,
+  FileVideo,
   Loader2,
+  Pause,
+  Play,
   RotateCcw,
+  Upload,
   Zap,
 } from "lucide-react";
-import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import { createAndDownloadPPT } from "@/lib/ppt-generation";
-import { extractFramesFromVideo, preprocessVideo } from "@/lib/video-processing";
 import { formatTime } from "@/lib/utils";
+import { extractFramesFromVideo, preprocessVideo } from "@/lib/video-processing";
 
 type ProcessingState = "idle" | "uploading" | "analyzing" | "extracting" | "completed" | "error";
 
@@ -31,7 +32,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
   const [processingState, setProcessingState] = useState<ProcessingState>("idle");
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string>("");
-  
+
   // Video analysis results
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [videoMetadata, setVideoMetadata] = useState<{
@@ -40,7 +41,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
     height: number;
     size: number;
   } | null>(null);
-  
+
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -64,11 +65,11 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
     setSelectedFile(file);
     setError("");
     setProcessingState("uploading");
-    
+
     // Create video URL for preview
     const url = URL.createObjectURL(file);
     setVideoUrl(url);
-    
+
     // Get video metadata
     getVideoMetadata(file, url);
   }, []);
@@ -77,7 +78,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
   const getVideoMetadata = (file: File, url: string) => {
     const video = document.createElement("video");
     video.preload = "metadata";
-    
+
     video.onloadedmetadata = () => {
       setVideoMetadata({
         duration: video.duration,
@@ -87,12 +88,12 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
       });
       setProcessingState("idle");
     };
-    
+
     video.onerror = () => {
       setError("无法读取视频文件信息");
       setProcessingState("error");
     };
-    
+
     video.src = url;
   };
 
@@ -102,15 +103,18 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileSelect(files[0]);
-    }
-  }, [handleFileSelect]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFileSelect(files[0]);
+      }
+    },
+    [handleFileSelect]
+  );
 
   // Process video using traditional method with WebAV enhancements
   const handleProcessVideo = async () => {
@@ -123,7 +127,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
+
       // Wait for video to be ready
       if (video.readyState < 2) {
         await new Promise<void>((resolve, reject) => {
@@ -135,7 +139,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
       // Preprocess to get dynamic threshold
       setProcessingState("analyzing");
       const dynamicThreshold = await preprocessVideo(video, canvas);
-      
+
       console.log(`Using dynamic threshold: ${dynamicThreshold}`);
 
       setProcessingState("extracting");
@@ -154,15 +158,14 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
             setProgress(progressPercent);
           },
           onFrameCaptured: (blob, url) => {
-            setScreenshots(prev => [...prev, url]);
+            setScreenshots((prev) => [...prev, url]);
           },
           onComplete: () => {
             setProcessingState("completed");
             setProgress(100);
-          }
+          },
         }
       );
-      
     } catch (error) {
       console.error("Error processing video:", error);
       setError("视频处理失败，请重试");
@@ -192,7 +195,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
     setError("");
     setScreenshots([]);
     setVideoMetadata(null);
-    
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -223,7 +226,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
               <ArrowLeft className="h-5 w-5" />
               <span>返回首页</span>
             </Link>
-            
+
             <div className="flex items-center space-x-2">
               <FileVideo className="h-6 w-6 text-blue-400" />
               <span className="text-xl font-semibold">本地视频</span>
@@ -250,17 +253,13 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                     <div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
                       <Upload className="h-10 w-10 text-blue-400" />
                     </div>
-                    
+
                     <div>
                       <h3 className="text-2xl font-semibold mb-2">选择视频文件</h3>
-                      <p className="text-zinc-400 mb-4">
-                        拖拽视频文件到这里，或点击选择文件
-                      </p>
-                      <p className="text-sm text-zinc-500">
-                        支持 MP4, AVI, MOV, WMV 等格式，最大100MB
-                      </p>
+                      <p className="text-zinc-400 mb-4">拖拽视频文件到这里，或点击选择文件</p>
+                      <p className="text-sm text-zinc-500">支持 MP4, AVI, MOV, WMV 等格式，最大100MB</p>
                     </div>
-                    
+
                     <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
                       <Upload className="mr-2 h-5 w-5" />
                       选择文件
@@ -279,7 +278,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                       controls
                       preload="metadata"
                     />
-                    
+
                     {/* Processing Overlay */}
                     {(processingState === "analyzing" || processingState === "extracting") && (
                       <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
@@ -319,7 +318,9 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                       </div>
                       <div>
                         <p className="text-sm text-zinc-400">分辨率</p>
-                        <p className="font-medium">{videoMetadata.width} × {videoMetadata.height}</p>
+                        <p className="font-medium">
+                          {videoMetadata.width} × {videoMetadata.height}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -346,7 +347,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                           <Download className="mr-2 h-5 w-5" />
                           下载PPT ({screenshots.length}张)
                         </Button>
-                        
+
                         <Button
                           onClick={handleProcessVideo}
                           variant="outline"
@@ -384,7 +385,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
             {/* Status */}
             <div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
               <h3 className="text-lg font-semibold mb-4">处理状态</h3>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">当前状态</span>
@@ -403,14 +404,14 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                     </span>
                   </div>
                 </div>
-                
+
                 {(processingState === "analyzing" || processingState === "extracting") && (
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-400">进度</span>
                     <span>{progress}%</span>
                   </div>
                 )}
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">提取帧数</span>
                   <span>{screenshots.length}</span>
@@ -422,23 +423,17 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
             {screenshots.length > 0 && (
               <div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
                 <h3 className="text-lg font-semibold mb-4">预览</h3>
-                
+
                 <div className="space-y-3">
                   {screenshots.slice(0, 3).map((screenshot, index) => (
                     <div key={index} className="aspect-video rounded-lg overflow-hidden border border-zinc-600/30">
-                      <img
-                        src={screenshot}
-                        alt={`Frame ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={screenshot} alt={`Frame ${index + 1}`} className="w-full h-full object-cover" />
                     </div>
                   ))}
                 </div>
-                
+
                 {screenshots.length > 3 && (
-                  <p className="text-sm text-zinc-400 mt-3 text-center">
-                    还有 {screenshots.length - 3} 帧...
-                  </p>
+                  <p className="text-sm text-zinc-400 mt-3 text-center">还有 {screenshots.length - 3} 帧...</p>
                 )}
               </div>
             )}
@@ -446,7 +441,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
             {/* Tips */}
             <div className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 p-6 backdrop-blur-sm">
               <h3 className="text-lg font-semibold mb-4 text-blue-300">处理说明</h3>
-              
+
               <ul className="space-y-2 text-sm text-blue-200">
                 <li>• 使用智能差异检测算法</li>
                 <li>• 自动计算最佳阈值</li>
@@ -459,17 +454,11 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
       </main>
 
       {/* Hidden Elements */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="video/*"
-        onChange={handleFileInputChange}
-        className="hidden"
-      />
-      
+      <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileInputChange} className="hidden" />
+
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 };
 
-export default LocalVideoPage; 
+export default LocalVideoPage;

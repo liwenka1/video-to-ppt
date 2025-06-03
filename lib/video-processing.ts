@@ -1,5 +1,6 @@
-import { calculateImageDifference } from "./utils";
 import type { RefObject } from "react";
+
+import { calculateImageDifference } from "./utils";
 
 interface CaptureScreenshotParams {
   videoRef: RefObject<HTMLVideoElement>;
@@ -39,33 +40,38 @@ export function captureAndFilterScreenshot({
   // Check if this is a significantly different frame
   if (lastImageDataRef.current) {
     const difference = calculateImageDifference(lastImageDataRef.current, currentImageData);
-    
+
     if (difference > diffThreshold) {
       // Convert canvas to blob and create URL
-      canvas.toBlob((blob) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const screenshotUrl = URL.createObjectURL(blob);
+            onScreenshotCaptured(screenshotUrl);
+          }
+        },
+        "image/jpeg",
+        0.8
+      );
+    }
+  } else {
+    // First frame - always capture
+    canvas.toBlob(
+      (blob) => {
         if (blob) {
           const screenshotUrl = URL.createObjectURL(blob);
           onScreenshotCaptured(screenshotUrl);
         }
-      }, "image/jpeg", 0.8);
-    }
-  } else {
-    // First frame - always capture
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const screenshotUrl = URL.createObjectURL(blob);
-        onScreenshotCaptured(screenshotUrl);
-      }
-    }, "image/jpeg", 0.8);
+      },
+      "image/jpeg",
+      0.8
+    );
   }
 
   lastImageDataRef.current = currentImageData;
 }
 
-export function updateCanvasWithScreenshot(
-  canvasRef: RefObject<HTMLCanvasElement>,
-  screenshotUrl: string
-): void {
+export function updateCanvasWithScreenshot(canvasRef: RefObject<HTMLCanvasElement>, screenshotUrl: string): void {
   const canvas = canvasRef.current;
   if (!canvas) return;
 
@@ -99,13 +105,13 @@ export async function processVideoWithWebAV(videoFile: File): Promise<{
   try {
     // Dynamic import WebAV modules only on client side
     const { MP4Clip } = await import("@webav/av-cliper");
-    
+
     // Create MP4Clip from file
     const mp4Clip = new MP4Clip(videoFile.stream());
-    
+
     // Get video metadata
     const { duration } = await mp4Clip.ready;
-    
+
     // Create frames array
     const frames: string[] = [];
     const scenes: Array<{
@@ -113,37 +119,37 @@ export async function processVideoWithWebAV(videoFile: File): Promise<{
       endTime: number;
       thumbnail: string;
     }> = [];
-    
+
     // Extract frames at regular intervals
     const frameInterval = Math.max(2, duration / 1e6 / 50); // Extract max 50 frames
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
-    
+
     if (!context) {
       throw new Error("Cannot create canvas context");
     }
-    
+
     for (let time = 0; time < duration; time += frameInterval * 1e6) {
       const { video } = await mp4Clip.tick(time);
-      
+
       if (video) {
         // Set canvas size to match video frame
         canvas.width = video.displayWidth;
         canvas.height = video.displayHeight;
-        
+
         // Draw video frame to canvas
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.drawImage(video, 0, 0);
-        
+
         // Convert to blob and create URL
         const blob = await new Promise<Blob | null>((resolve) => {
           canvas.toBlob(resolve, "image/jpeg", 0.8);
         });
-        
+
         if (blob) {
           const frameUrl = URL.createObjectURL(blob);
           frames.push(frameUrl);
-          
+
           // Create scene data for every 10 seconds
           if (frames.length % 10 === 0) {
             scenes.push({
@@ -153,12 +159,12 @@ export async function processVideoWithWebAV(videoFile: File): Promise<{
             });
           }
         }
-        
+
         // Close the video frame
         video.close();
       }
     }
-    
+
     return { frames, duration: duration / 1e6, scenes };
   } catch (error) {
     console.error("Error processing video with WebAV:", error);
@@ -183,35 +189,35 @@ export async function extractFramesFromVideo(
 ): Promise<void> {
   const { captureInterval, differenceThreshold, maxScreenshots } = options;
   const { onProgress, onFrameCaptured, onComplete } = callbacks;
-  
+
   const context = canvas.getContext("2d");
   if (!context) return;
-  
+
   // Set canvas dimensions
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  
+
   let currentTime = 0;
   const totalDuration = video.duration;
   let previousImageData: ImageData | null = null;
   const screenshots: Blob[] = [];
   let noNewScreenshotCount = 0;
-  
+
   const captureFrame = async (time: number): Promise<void> => {
     return new Promise((resolve) => {
       video.currentTime = time;
-      
+
       video.onseeked = () => {
         // Draw current frame
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const currentImageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        
+
         let shouldCapture = false;
-        
+
         if (previousImageData) {
           const difference = calculateImageDifference(previousImageData, currentImageData);
           shouldCapture = difference > differenceThreshold;
-          
+
           if (!shouldCapture) {
             noNewScreenshotCount++;
           } else {
@@ -220,49 +226,50 @@ export async function extractFramesFromVideo(
         } else {
           shouldCapture = true; // First frame
         }
-        
+
         if (shouldCapture && screenshots.length < maxScreenshots) {
-          canvas.toBlob((blob) => {
-            if (blob) {
-              screenshots.push(blob);
-              const url = URL.createObjectURL(blob);
-              onFrameCaptured(blob, url);
-            }
-            resolve();
-          }, "image/jpeg", 0.8);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                screenshots.push(blob);
+                const url = URL.createObjectURL(blob);
+                onFrameCaptured(blob, url);
+              }
+              resolve();
+            },
+            "image/jpeg",
+            0.8
+          );
         } else {
           resolve();
         }
-        
+
         previousImageData = currentImageData;
       };
     });
   };
-  
+
   // Extract frames
   while (currentTime <= totalDuration && screenshots.length < maxScreenshots) {
     await captureFrame(currentTime);
-    
+
     // Update progress
     const progress = Math.round((currentTime / totalDuration) * 100);
     onProgress(progress);
-    
+
     currentTime += captureInterval;
-    
+
     // Stop if no new screenshots for too long
     if (noNewScreenshotCount > 20) {
       break;
     }
   }
-  
+
   onComplete(screenshots);
 }
 
 // FFmpeg conversion utilities (client-side only)
-export async function convertWebmToMp4(
-  webmBlob: Blob,
-  onProgress?: (progress: number) => void
-): Promise<Blob> {
+export async function convertWebmToMp4(webmBlob: Blob, onProgress?: (progress: number) => void): Promise<Blob> {
   // Check if we're on the client side
   if (typeof window === "undefined") {
     throw new Error("FFmpeg can only be used on the client side");
@@ -335,9 +342,7 @@ export interface VideoAnalysisResult {
 }
 
 // Advanced video analysis using WebAV
-export async function analyzeVideoContent(
-  videoFile: File | Blob
-): Promise<VideoAnalysisResult> {
+export async function analyzeVideoContent(videoFile: File | Blob): Promise<VideoAnalysisResult> {
   // Check if we're on the client side
   if (typeof window === "undefined") {
     throw new Error("Video analysis can only be performed on the client side");
@@ -346,10 +351,10 @@ export async function analyzeVideoContent(
   try {
     // Convert Blob to File if needed
     const file = videoFile instanceof File ? videoFile : new File([videoFile], "video.mp4");
-    
+
     // Use WebAV for processing
     const result = await processVideoWithWebAV(file);
-    
+
     return {
       keyFrames: result.frames,
       scenes: result.scenes,
@@ -365,57 +370,54 @@ export async function analyzeVideoContent(
 }
 
 // Preprocess video to calculate dynamic threshold (from original video2ppt)
-export async function preprocessVideo(
-  video: HTMLVideoElement,
-  canvas: HTMLCanvasElement
-): Promise<number> {
+export async function preprocessVideo(video: HTMLVideoElement, canvas: HTMLCanvasElement): Promise<number> {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Cannot get canvas context");
-  
+
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  
+
   const totalDuration = video.duration;
   const sampleCount = Math.min(50, Math.max(20, Math.floor(totalDuration / 10)));
   const preProcessInterval = totalDuration / sampleCount;
-  
+
   let currentTime = 0;
   let previousImageData: ImageData | null = null;
   const differences: number[] = [];
-  
+
   const capturePreProcessFrame = async (time: number): Promise<void> => {
     return new Promise((resolve) => {
       video.currentTime = time;
-      
+
       video.onseeked = () => {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const currentImageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        
+
         if (previousImageData) {
           const difference = calculateImageDifference(previousImageData, currentImageData);
           differences.push(difference);
         }
-        
+
         previousImageData = currentImageData;
         resolve();
       };
     });
   };
-  
+
   // Sample frames for threshold calculation
   while (currentTime <= totalDuration && differences.length < sampleCount) {
     await capturePreProcessFrame(currentTime);
     currentTime += preProcessInterval;
   }
-  
+
   if (differences.length === 0) return 30; // Default threshold
-  
+
   // Calculate dynamic threshold
   const sortedDifferences = [...differences].sort((a, b) => a - b);
   const medianDiff = sortedDifferences[Math.floor(sortedDifferences.length / 2)];
-  
+
   // Use median as base threshold, with reasonable bounds
   const finalThreshold = Math.max(10, Math.min(medianDiff, 60));
-  
+
   return finalThreshold;
-} 
+}

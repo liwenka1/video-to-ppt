@@ -15,35 +15,35 @@ const nextConfig: NextConfig = {
     // Handle FFmpeg worker files
     config.module.rules.push({
       test: /\.wasm$/,
-      type: 'asset/resource',
+      type: "asset/resource",
     });
 
     // Ignore FFmpeg in server-side rendering
     if (isServer) {
-      config.externals.push('@ffmpeg/ffmpeg', '@ffmpeg/util');
+      config.externals.push("@ffmpeg/ffmpeg", "@ffmpeg/util");
     }
 
     return config;
   },
-  
+
   // Experimental features for better compatibility
   // experimental: {
   //   esmExternals: 'loose',
   // },
-  
+
   // Headers for SharedArrayBuffer (required for FFmpeg)
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: "/(.*)",
         headers: [
           {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
+            key: "Cross-Origin-Embedder-Policy",
+            value: "require-corp",
           },
           {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin",
           },
         ],
       },
