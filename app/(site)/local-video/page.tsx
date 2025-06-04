@@ -19,9 +19,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { createAndDownloadPPT } from "@/lib/ppt-generation";
 import { formatTime } from "@/lib/utils";
-import { extractFramesFromVideo, preprocessVideo } from "@/lib/video-processing";
+import { extractFramesFromVideo, preprocessVideo, convertToMp4 } from "@/lib/video-processing";
 
-type ProcessingState = "idle" | "uploading" | "analyzing" | "extracting" | "completed" | "error";
+type ProcessingState = "idle" | "uploading" | "analyzing" | "extracting" | "completed" | "error" | "converting";
 
 interface LocalVideoPageProps {}
 
@@ -47,31 +47,98 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Check if file is MP4 format
+  const isMP4Format = (file: File): boolean => {
+    return file.type === "video/mp4" || file.name.toLowerCase().endsWith('.mp4');
+  };
+
+  // Convert non-MP4 video to MP4 format
+  const convertVideoToMp4 = async (file: File): Promise<File> => {
+    setProcessingState("converting");
+    setProgress(0);
+    
+    try {
+      console.log(`Converting ${file.name} to MP4...`);
+      
+      // Get file extension for format detection
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      
+      // Convert using the new convertToMp4 method
+      const convertedBlob = await convertToMp4(file, (progressValue) => {
+        // Validate and clamp progress value
+        const validProgress = Math.max(0, Math.min(100, Math.round(progressValue || 0)));
+        console.log(`Conversion progress: ${validProgress}%`);
+        setProgress(validProgress);
+      }, fileExtension);
+      
+      // Create new file with MP4 extension
+      const convertedFileName = file.name.replace(/\.[^/.]+$/, "_converted.mp4");
+      const convertedFile = new File([convertedBlob], convertedFileName, {
+        type: "video/mp4"
+      });
+      
+      console.log(`Conversion completed: ${convertedFile.name}`);
+      return convertedFile;
+    } catch (error) {
+      console.error("Error converting video:", error);
+      throw new Error("视频格式转换失败，请尝试使用MP4格式的视频");
+    }
+  };
+
   // Handle file selection
-  const handleFileSelect = useCallback((file: File) => {
+  const handleFileSelect = useCallback(async (file: File) => {
     // Validate file type
     if (!file.type.startsWith("video/")) {
       setError("请选择有效的视频文件");
       return;
     }
 
-    // Validate file size (100MB limit)
-    const maxSize = 100 * 1024 * 1024; // 100MB
+    // Validate file size (100MB limit for original, 200MB for larger files that need conversion)
+    const maxSize = 200 * 1024 * 1024; // 200MB to accommodate conversion
     if (file.size > maxSize) {
-      setError("文件大小不能超过100MB");
+      setError("文件大小不能超过200MB");
       return;
     }
 
-    setSelectedFile(file);
+    // Reset states
     setError("");
+    setProgress(0);
+    setScreenshots([]);
+    setVideoMetadata(null);
+    setVideoUrl(""); // Clear previous video URL
+    
+    setSelectedFile(file);
     setProcessingState("uploading");
 
-    // Create video URL for preview
-    const url = URL.createObjectURL(file);
-    setVideoUrl(url);
+    try {
+      let finalFile = file;
 
-    // Get video metadata
-    getVideoMetadata(file, url);
+      // Check if file is MP4, if not convert it
+      if (!isMP4Format(file)) {
+        console.log("Non-MP4 format detected, converting to MP4...");
+        setError("检测到非MP4格式，正在转换为MP4以确保兼容性...");
+        
+        finalFile = await convertVideoToMp4(file);
+        setSelectedFile(finalFile);
+        setError(""); // Clear conversion message
+        
+        console.log("Format conversion completed successfully");
+      }
+
+      // Create video URL for preview only after conversion is complete
+      const url = URL.createObjectURL(finalFile);
+      setVideoUrl(url);
+
+      // Get video metadata
+      getVideoMetadata(finalFile, url);
+      
+    } catch (error) {
+      console.error("Error processing file:", error);
+      setError(error instanceof Error ? error.message : "文件处理失败");
+      setProcessingState("error");
+      // Ensure video URL is cleared on error
+      setVideoUrl("");
+    }
   }, []);
 
   // Get video metadata
@@ -188,6 +255,11 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 
   // Reset everything
   const handleReset = () => {
+    // Clean up video URL to prevent memory leaks
+    if (videoUrl) {
+      URL.revokeObjectURL(videoUrl);
+    }
+    
     setSelectedFile(null);
     setVideoUrl("");
     setProcessingState("idle");
@@ -273,20 +345,22 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                   <div className="aspect-video rounded-lg bg-black overflow-hidden relative">
                     <video
                       ref={videoRef}
-                      src={videoUrl}
+                      src={videoUrl || undefined}
                       className="w-full h-full object-contain"
                       controls
                       preload="metadata"
                     />
 
                     {/* Processing Overlay */}
-                    {(processingState === "analyzing" || processingState === "extracting") && (
+                    {(processingState === "analyzing" || processingState === "extracting" || processingState === "converting") && (
                       <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
                         <div className="text-center space-y-4">
                           <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-400" />
                           <div>
                             <p className="text-lg font-semibold">
-                              {processingState === "analyzing" ? "分析视频中..." : "提取关键帧..."}
+                              {processingState === "converting" && "转换视频格式中..."}
+                              {processingState === "analyzing" && "分析视频中..."}
+                              {processingState === "extracting" && "提取关键帧..."}
                             </p>
                             <div className="mt-2 w-64 bg-zinc-700 rounded-full h-2">
                               <div
@@ -295,6 +369,9 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                               />
                             </div>
                             <p className="text-sm text-zinc-400 mt-1">{progress}%</p>
+                            {processingState === "converting" && (
+                              <p className="text-xs text-zinc-500 mt-2">使用FFmpeg转换为MP4格式，确保@webav/av-cliper兼容性</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -397,6 +474,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                     <span className="capitalize">
                       {processingState === "idle" && "等待处理"}
                       {processingState === "uploading" && "上传中"}
+                      {processingState === "converting" && "格式转换中"}
                       {processingState === "analyzing" && "分析中"}
                       {processingState === "extracting" && "提取中"}
                       {processingState === "completed" && "已完成"}
@@ -405,7 +483,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                   </div>
                 </div>
 
-                {(processingState === "analyzing" || processingState === "extracting") && (
+                {(processingState === "analyzing" || processingState === "extracting" || processingState === "converting") && (
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-400">进度</span>
                     <span>{progress}%</span>
@@ -443,6 +521,8 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
               <h3 className="text-lg font-semibold mb-4 text-blue-300">处理说明</h3>
 
               <ul className="space-y-2 text-sm text-blue-200">
+                <li>• 自动检测视频格式，非MP4自动转换</li>
+                <li>• 确保@webav/av-cliper兼容性</li>
                 <li>• 使用智能差异检测算法</li>
                 <li>• 自动计算最佳阈值</li>
                 <li>• 过滤相似帧，提取关键内容</li>

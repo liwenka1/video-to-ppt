@@ -269,7 +269,11 @@ export async function extractFramesFromVideo(
 }
 
 // FFmpeg conversion utilities (client-side only)
-export async function convertWebmToMp4(webmBlob: Blob, onProgress?: (progress: number) => void): Promise<Blob> {
+export async function convertToMp4(
+  inputBlob: Blob,
+  onProgress?: (progress: number) => void,
+  inputFormat?: string
+): Promise<Blob> {
   // Check if we're on the client side
   if (typeof window === "undefined") {
     throw new Error("FFmpeg can only be used on the client side");
@@ -278,29 +282,39 @@ export async function convertWebmToMp4(webmBlob: Blob, onProgress?: (progress: n
   try {
     // Dynamic import for FFmpeg to avoid SSR issues
     const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-    const { fetchFile } = await import("@ffmpeg/util");
+    const { fetchFile, toBlobURL } = await import("@ffmpeg/util");
 
     const ffmpeg = new FFmpeg();
 
     if (onProgress) {
       ffmpeg.on("progress", ({ progress }: { progress: number }) => {
-        onProgress(Math.round(progress * 100));
+        // Validate progress value and ensure it's within reasonable bounds
+        const progressPercent = typeof progress === 'number' && isFinite(progress) 
+          ? Math.max(0, Math.min(100, Math.round(progress * 100)))
+          : 0;
+        onProgress(progressPercent);
       });
     }
 
     // Load FFmpeg
+    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
     await ffmpeg.load({
-      coreURL: "https://unpkg.com/@ffmpeg/core@0.12.15/dist/umd/ffmpeg-core.js",
-      wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.15/dist/umd/ffmpeg-core.wasm",
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
     });
 
-    // Write input file
-    await ffmpeg.writeFile("input.webm", await fetchFile(webmBlob));
+    // Determine input format
+    const inputExt = inputFormat || getExtensionFromMime(inputBlob.type) || "webm";
+    const inputFileName = `input.${inputExt}`;
+    const outputFileName = "output.mp4";
 
-    // Convert webm to mp4
-    await ffmpeg.exec([
+    // Write input file
+    await ffmpeg.writeFile(inputFileName, await fetchFile(inputBlob));
+
+    // Build conversion command
+    const command = [
       "-i",
-      "input.webm",
+      inputFileName,
       "-c:v",
       "libx264",
       "-preset",
@@ -311,21 +325,44 @@ export async function convertWebmToMp4(webmBlob: Blob, onProgress?: (progress: n
       "aac",
       "-b:a",
       "128k",
-      "output.mp4",
-    ]);
+      "-movflags",
+      "+faststart", // For better streaming
+      outputFileName,
+    ];
+
+    // Execute conversion
+    await ffmpeg.exec(command);
 
     // Read the result
-    const data = await ffmpeg.readFile("output.mp4");
+    const data = await ffmpeg.readFile(outputFileName);
     const mp4Blob = new Blob([data as BlobPart], { type: "video/mp4" });
 
     // Cleanup
+    await ffmpeg.deleteFile(inputFileName);
+    await ffmpeg.deleteFile(outputFileName);
     await ffmpeg.terminate();
 
     return mp4Blob;
   } catch (error) {
-    console.error("Error converting WebM to MP4:", error);
+    console.error("Error converting to MP4:", error);
     throw error;
   }
+}
+
+// Helper to get file extension from MIME type
+function getExtensionFromMime(mimeType: string): string | null {
+  const mimeMap: Record<string, string> = {
+    "video/webm": "webm",
+    "video/quicktime": "mov",
+    "video/x-msvideo": "avi",
+    "video/mp4": "mp4",
+    "video/x-matroska": "mkv",
+    "video/3gpp": "3gp",
+    "video/x-flv": "flv",
+    "video/x-ms-wmv": "wmv",
+  };
+
+  return mimeMap[mimeType.toLowerCase()] || null;
 }
 
 export interface VideoAnalysisResult {
