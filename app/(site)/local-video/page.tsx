@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { createAndDownloadPPT } from "@/lib/ppt-generation";
 import { formatTime } from "@/lib/utils";
-import { extractFramesFromVideo, preprocessVideo, convertToMp4 } from "@/lib/video-processing";
+import { convertToMp4, extractFramesFromVideo, preprocessVideo } from "@/lib/video-processing";
 
 type ProcessingState = "idle" | "uploading" | "analyzing" | "extracting" | "completed" | "error" | "converting";
 
@@ -49,34 +49,38 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 
   // Check if file is MP4 format
   const isMP4Format = (file: File): boolean => {
-    return file.type === "video/mp4" || file.name.toLowerCase().endsWith('.mp4');
+    return file.type === "video/mp4" || file.name.toLowerCase().endsWith(".mp4");
   };
 
   // Convert non-MP4 video to MP4 format
   const convertVideoToMp4 = async (file: File): Promise<File> => {
     setProcessingState("converting");
     setProgress(0);
-    
+
     try {
       console.log(`Converting ${file.name} to MP4...`);
-      
+
       // Get file extension for format detection
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      
+      const fileExtension = file.name.split(".").pop()?.toLowerCase();
+
       // Convert using the new convertToMp4 method
-      const convertedBlob = await convertToMp4(file, (progressValue) => {
-        // Validate and clamp progress value
-        const validProgress = Math.max(0, Math.min(100, Math.round(progressValue || 0)));
-        console.log(`Conversion progress: ${validProgress}%`);
-        setProgress(validProgress);
-      }, fileExtension);
-      
+      const convertedBlob = await convertToMp4(
+        file,
+        (progressValue) => {
+          // Validate and clamp progress value
+          const validProgress = Math.max(0, Math.min(100, Math.round(progressValue || 0)));
+          console.log(`Conversion progress: ${validProgress}%`);
+          setProgress(validProgress);
+        },
+        fileExtension
+      );
+
       // Create new file with MP4 extension
       const convertedFileName = file.name.replace(/\.[^/.]+$/, "_converted.mp4");
       const convertedFile = new File([convertedBlob], convertedFileName, {
-        type: "video/mp4"
+        type: "video/mp4",
       });
-      
+
       console.log(`Conversion completed: ${convertedFile.name}`);
       return convertedFile;
     } catch (error) {
@@ -106,7 +110,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
     setScreenshots([]);
     setVideoMetadata(null);
     setVideoUrl(""); // Clear previous video URL
-    
+
     setSelectedFile(file);
     setProcessingState("uploading");
 
@@ -117,11 +121,11 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
       if (!isMP4Format(file)) {
         console.log("Non-MP4 format detected, converting to MP4...");
         setError("检测到非MP4格式，正在转换为MP4以确保兼容性...");
-        
+
         finalFile = await convertVideoToMp4(file);
         setSelectedFile(finalFile);
         setError(""); // Clear conversion message
-        
+
         console.log("Format conversion completed successfully");
       }
 
@@ -131,7 +135,6 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 
       // Get video metadata
       getVideoMetadata(finalFile, url);
-      
     } catch (error) {
       console.error("Error processing file:", error);
       setError(error instanceof Error ? error.message : "文件处理失败");
@@ -259,7 +262,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
     if (videoUrl) {
       URL.revokeObjectURL(videoUrl);
     }
-    
+
     setSelectedFile(null);
     setVideoUrl("");
     setProcessingState("idle");
@@ -352,7 +355,9 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                     />
 
                     {/* Processing Overlay */}
-                    {(processingState === "analyzing" || processingState === "extracting" || processingState === "converting") && (
+                    {(processingState === "analyzing" ||
+                      processingState === "extracting" ||
+                      processingState === "converting") && (
                       <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 animate-[fadeIn_0.3s_ease-in-out_forwards]">
                         <div className="text-center space-y-4">
                           <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-400" />
@@ -370,7 +375,9 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                             </div>
                             <p className="text-sm text-zinc-400 mt-1">{progress}%</p>
                             {processingState === "converting" && (
-                              <p className="text-xs text-zinc-500 mt-2">使用FFmpeg转换为MP4格式，确保@webav/av-cliper兼容性</p>
+                              <p className="text-xs text-zinc-500 mt-2">
+                                使用FFmpeg转换为MP4格式，确保@webav/av-cliper兼容性
+                              </p>
                             )}
                           </div>
                         </div>
@@ -483,7 +490,9 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
                   </div>
                 </div>
 
-                {(processingState === "analyzing" || processingState === "extracting" || processingState === "converting") && (
+                {(processingState === "analyzing" ||
+                  processingState === "extracting" ||
+                  processingState === "converting") && (
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-400">进度</span>
                     <span>{progress}%</span>

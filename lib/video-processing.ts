@@ -289,9 +289,10 @@ export async function convertToMp4(
     if (onProgress) {
       ffmpeg.on("progress", ({ progress }: { progress: number }) => {
         // Validate progress value and ensure it's within reasonable bounds
-        const progressPercent = typeof progress === 'number' && isFinite(progress) 
-          ? Math.max(0, Math.min(100, Math.round(progress * 100)))
-          : 0;
+        const progressPercent =
+          typeof progress === "number" && isFinite(progress)
+            ? Math.max(0, Math.min(100, Math.round(progress * 100)))
+            : 0;
         onProgress(progressPercent);
       });
     }
