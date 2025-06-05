@@ -286,71 +286,225 @@ export async function convertToMp4(
 
 		const ffmpeg = new FFmpeg();
 
+		// Enhanced logging and progress parsing
+		
+		ffmpeg.on("log", ({ message }) => {
+			console.log("FFmpeg log:", message);
+			
+			// Simple activity indicator instead of complex progress calculation
+			if (message.includes("frame=") && onProgress) {
+				const frameMatch = message.match(/frame=\s*(\d+)/);
+				if (frameMatch) {
+					frameCount = parseInt(frameMatch[1]);
+					
+					// Simple activity indicator - just show we're working
+					// Progress stages: 20% -> 40% -> 60% -> 80% based on activity
+					const now = Date.now();
+					if (now - lastProgressUpdate > 2000) { // Update every 2 seconds
+						if (frameCount > 0 && frameCount < 100) {
+							onProgress(20); // Starting
+						} else if (frameCount >= 100 && frameCount < 300) {
+							onProgress(40); // Processing
+						} else if (frameCount >= 300 && frameCount < 600) {
+							onProgress(60); // Continuing
+						} else if (frameCount >= 600) {
+							onProgress(80); // Almost done
+						}
+						lastProgressUpdate = now;
+						console.log(`Processing frames: ${frameCount}`);
+					}
+				}
+			}
+		});
+
 		if (onProgress) {
 			ffmpeg.on("progress", ({ progress }: { progress: number }) => {
-				// Validate progress value and ensure it's within reasonable bounds
+				// Fallback progress handling if the log parsing doesn't work
 				const progressPercent =
 					typeof progress === "number" && isFinite(progress)
 						? Math.max(0, Math.min(100, Math.round(progress * 100)))
 						: 0;
-				onProgress(progressPercent);
+				if (progressPercent > 0) {
+					onProgress(progressPercent);
+				}
 			});
 		}
 
-		// Load FFmpeg
+		// Load FFmpeg with enhanced error handling
+		console.log("Loading FFmpeg...");
 		const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
-		await ffmpeg.load({
-			coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-			wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-		});
+		
+		try {
+			await ffmpeg.load({
+				coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+				wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+			});
+		} catch (loadError) {
+			console.error("Failed to load from unpkg, trying alternative CDN...");
+			// Fallback to alternative CDN
+			const altBaseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
+			await ffmpeg.load({
+				coreURL: await toBlobURL(`${altBaseURL}/ffmpeg-core.js`, "text/javascript"),
+				wasmURL: await toBlobURL(`${altBaseURL}/ffmpeg-core.wasm`, "application/wasm"),
+			});
+		}
 
-		// Determine input format
-		const inputExt = inputFormat || getExtensionFromMime(inputBlob.type) || "webm";
+		console.log("FFmpeg loaded successfully");
+
+		// Enhanced format detection
+		const inputExt = inputFormat || getExtensionFromMime(inputBlob.type) || getExtensionFromBlob(inputBlob) || "webm";
 		const inputFileName = `input.${inputExt}`;
 		const outputFileName = "output.mp4";
+
+		console.log(`Converting ${inputFileName} to ${outputFileName}, size: ${inputBlob.size} bytes`);
+		
+		// Performance monitoring
+		const startTime = Date.now();
+
+		// Initialize duration tracking variables in outer scope
+		let totalDuration: number | null = null;
+		let estimatedDuration: number | null = null;
+		let lastCurrentTime = 0;
+		let frameCount = 0;
+		let lastProgressUpdate = 0;
+
+		// Try to get video metadata from blob before conversion
+		try {
+			const videoElement = document.createElement('video');
+			const blobUrl = URL.createObjectURL(inputBlob);
+			videoElement.src = blobUrl;
+			
+			await new Promise<void>((resolve) => {
+				videoElement.addEventListener('loadedmetadata', () => {
+					if (videoElement.duration && isFinite(videoElement.duration)) {
+						totalDuration = videoElement.duration;
+						console.log(`Video duration from metadata: ${totalDuration} seconds`);
+					}
+					URL.revokeObjectURL(blobUrl);
+					resolve();
+				});
+				
+				videoElement.addEventListener('error', () => {
+					console.log('Could not load video metadata, will estimate during conversion');
+					URL.revokeObjectURL(blobUrl);
+					resolve();
+				});
+				
+				// Timeout after 2 seconds
+				setTimeout(() => {
+					console.log('Metadata loading timeout, proceeding with conversion');
+					URL.revokeObjectURL(blobUrl);
+					resolve();
+				}, 2000);
+			});
+		} catch (error) {
+			console.log('Error getting video metadata:', error);
+		}
 
 		// Write input file
 		await ffmpeg.writeFile(inputFileName, await fetchFile(inputBlob));
 
-		// Build conversion command
-		const command = [
-			"-i",
-			inputFileName,
-			"-c:v",
-			"libx264",
-			"-preset",
-			"fast",
-			"-crf",
-			"23",
-			"-c:a",
-			"aac",
-			"-b:a",
-			"128k",
-			"-movflags",
-			"+faststart", // For better streaming
-			outputFileName,
-		];
+		// Strategy: Try copy first for maximum speed, simple fallback if needed
+		const timeoutPromise = new Promise((_, reject) => {
+			setTimeout(() => reject(new Error("Conversion timeout after 5 minutes")), 5 * 60 * 1000);
+		});
 
-		// Execute conversion
-		await ffmpeg.exec(command);
+		// First attempt: Try copy for maximum speed
+		let copyCommand = ["-i", inputFileName, "-c", "copy", "-movflags", "+faststart", "-f", "mp4", outputFileName];
+		
+		console.log(`⚡ Trying fast copy:`, copyCommand.join(" "));
+
+		let copySucceeded = false;
+		try {
+			const copyPromise = ffmpeg.exec(copyCommand);
+			await Promise.race([copyPromise, timeoutPromise]);
+			copySucceeded = true;
+			console.log("✅ Copy conversion succeeded!");
+		} catch (copyError) {
+			console.log("❌ Copy failed, falling back to re-encoding...");
+		}
+
+		// If copy failed, use simple re-encoding
+		if (!copySucceeded) {
+			// Simple, fast re-encoding as fallback
+			let fallbackCommand = [
+				"-i", inputFileName,
+				"-c:v", "libx264",
+				"-preset", "fast",
+				"-crf", "23",
+				"-c:a", "aac",
+				"-b:a", "128k",
+				"-movflags", "+faststart",
+				outputFileName
+			];
+			
+			console.log(`🔄 Re-encoding fallback:`, fallbackCommand.join(" "));
+
+			try {
+				const conversionPromise = ffmpeg.exec(fallbackCommand);
+				await Promise.race([conversionPromise, timeoutPromise]);
+				console.log("✅ Fallback conversion succeeded!");
+			} catch (error) {
+				console.log("❌ Fallback failed:", error);
+				throw error;
+			}
+		}
 
 		// Read the result
 		const data = await ffmpeg.readFile(outputFileName);
+		
+		if (!data || (data as Uint8Array).length === 0) {
+			throw new Error("Conversion produced empty output");
+		}
+
 		const mp4Blob = new Blob([data as BlobPart], { type: "video/mp4" });
 
+		// Final progress update
+		if (onProgress) {
+			onProgress(100);
+			console.log("Progress: 100% (conversion completed)");
+		}
+
+		const endTime = Date.now();
+		const conversionTime = (endTime - startTime) / 1000;
+		const compressionRatio = ((inputBlob.size - mp4Blob.size) / inputBlob.size * 100).toFixed(1);
+		
+		console.log(`Conversion completed in ${conversionTime.toFixed(1)}s`);
+		console.log(`Input: ${(inputBlob.size / 1024 / 1024).toFixed(2)}MB → Output: ${(mp4Blob.size / 1024 / 1024).toFixed(2)}MB`);
+		console.log(`Compression: ${compressionRatio}% size reduction`);
+
 		// Cleanup
-		await ffmpeg.deleteFile(inputFileName);
-		await ffmpeg.deleteFile(outputFileName);
+		try {
+			await ffmpeg.deleteFile(inputFileName);
+			await ffmpeg.deleteFile(outputFileName);
+		} catch (cleanupError) {
+			console.warn("Cleanup error:", cleanupError);
+		}
+
 		await ffmpeg.terminate();
 
 		return mp4Blob;
 	} catch (error) {
 		console.error("Error converting to MP4:", error);
+		
+		// Enhanced error messages
+		if (error instanceof Error) {
+			if (error.message.includes("SharedArrayBuffer")) {
+				throw new Error("浏览器不支持SharedArrayBuffer，请在HTTPS环境下使用或启用相关浏览器特性");
+			} else if (error.message.includes("network")) {
+				throw new Error("网络错误：无法下载FFmpeg组件，请检查网络连接");
+			} else if (error.message.includes("memory")) {
+				throw new Error("内存不足：文件太大，请尝试较小的文件或刷新页面重试");
+			} else if (error.message.includes("timeout")) {
+				throw new Error("转换超时：文件处理时间过长，请尝试较小的文件");
+			}
+		}
+		
 		throw error;
 	}
 }
 
-// Helper to get file extension from MIME type
+// Enhanced helper to get file extension from MIME type
 function getExtensionFromMime(mimeType: string): string | null {
 	const mimeMap: Record<string, string> = {
 		"video/webm": "webm",
@@ -361,10 +515,34 @@ function getExtensionFromMime(mimeType: string): string | null {
 		"video/3gpp": "3gp",
 		"video/x-flv": "flv",
 		"video/x-ms-wmv": "wmv",
+		"video/ogg": "ogv",
+		"video/x-ms-asf": "asf",
+		"video/x-f4v": "f4v",
+		"video/x-m4v": "m4v",
+		"audio/mp4": "m4a",
+		"audio/webm": "weba",
+		"audio/ogg": "ogg",
+		"audio/mpeg": "mp3",
+		"audio/wav": "wav",
+		"audio/x-flac": "flac",
+		"audio/aac": "aac",
 	};
 
 	return mimeMap[mimeType.toLowerCase()] || null;
 }
+
+// New helper to detect format from file content
+function getExtensionFromBlob(blob: Blob): string | null {
+	// This is a basic implementation - in a real scenario, you might want to read file headers
+	const name = (blob as any).name;
+	if (name && typeof name === 'string') {
+		const ext = name.split('.').pop()?.toLowerCase();
+		if (ext) return ext;
+	}
+	return null;
+}
+
+
 
 export interface VideoAnalysisResult {
 	keyFrames: string[];
