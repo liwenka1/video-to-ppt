@@ -52,7 +52,7 @@ const AnimatedBackground = () => {
 	}, []);
 
 	return (
-		<div className="absolute inset-0 overflow-hidden">
+		<div className="fixed inset-0 overflow-hidden">
 			{/* Gradient overlays */}
 			<div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-teal-900/20" />
 			<div className="absolute inset-0 bg-gradient-to-tr from-zinc-900 via-zinc-900/80 to-zinc-900/60" />
@@ -65,7 +65,7 @@ const AnimatedBackground = () => {
 				}}
 			/>
 
-			{/* Grid pattern */}
+			{/* Grid pattern - covers entire viewport */}
 			<div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px]" />
 		</div>
 	);
@@ -84,11 +84,11 @@ const HomePage = () => {
 	}, [features.length]);
 
 	return (
-		<div className="min-h-screen bg-zinc-950 text-white overflow-hidden">
+		<div className="min-h-screen bg-zinc-950 text-white overflow-hidden relative">
 			<AnimatedBackground />
 
 			{/* Header */}
-			<header className="relative z-20 border-b border-zinc-800/50 backdrop-blur-sm">
+			<header className="relative z-10 border-b border-zinc-800/50 backdrop-blur-sm">
 				<div className="container mx-auto px-6 py-4">
 					<nav className="flex items-center justify-between">
 						<div className="flex items-center space-x-2">

@@ -425,16 +425,23 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 	}, [mediaStream]);
 
 	return (
-		<div className="min-h-screen bg-zinc-950 text-white">
-			{/* Background */}
-			<div className="absolute inset-0">
+		<div className="min-h-screen bg-zinc-950 text-white relative">
+			{/* Background - Fixed to cover entire page */}
+			<div className="fixed inset-0 z-0 overflow-hidden">
+				{/* Gradient overlays */}
 				<div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-teal-900/20" />
 				<div className="absolute inset-0 bg-gradient-to-tr from-zinc-900 via-zinc-900/80 to-zinc-900/60" />
-				<div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px]" />
+				
+				{/* Grid pattern - covers entire viewport */}
+				<div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px] opacity-100" />
+				
+				{/* Subtle animated elements */}
+				<div className="absolute top-1/3 left-1/4 w-96 h-96 rounded-full bg-gradient-to-r from-red-500/10 to-orange-500/10 blur-3xl animate-pulse" />
+				<div className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 blur-3xl animate-pulse [animation-delay:3s]" />
 			</div>
 
 			{/* Header */}
-			<header className="relative z-20 border-b border-zinc-800/50 backdrop-blur-sm">
+			<header className="relative z-10 border-b border-zinc-800/50 backdrop-blur-sm">
 				<div className="container mx-auto px-6 py-4">
 					<nav className="flex items-center justify-between">
 						<Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
@@ -455,7 +462,7 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 				<div className="grid lg:grid-cols-3 gap-8">
 					{/* Recording Panel */}
 					<div className="lg:col-span-2">
-						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
+						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm hover:border-zinc-600/70 transition-all duration-300">
 							{/* Video Preview */}
 							<div className="aspect-video rounded-lg bg-gradient-to-br from-zinc-800 to-zinc-700 border border-zinc-600/30 overflow-hidden mb-6 relative">
 								{recordingState === "idle" ? (
@@ -659,7 +666,7 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 					{/* Info Panel */}
 					<div className="space-y-6">
 						{/* Status */}
-						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
+						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm hover:border-zinc-600/70 transition-all duration-300">
 							<h3 className="text-lg font-semibold mb-4">录制状态</h3>
 
 							<div className="space-y-3">
@@ -696,7 +703,7 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 
 						{/* Screenshots Preview */}
 						{screenshots.length > 0 && (
-							<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
+							<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm hover:border-zinc-600/70 transition-all duration-300">
 								<h3 className="text-lg font-semibold mb-4">截图预览</h3>
 
 								<div className="space-y-3">
@@ -714,7 +721,7 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 						)}
 
 						{/* Tips */}
-						<div className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 p-6 backdrop-blur-sm">
+						<div className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 p-6 backdrop-blur-sm hover:border-blue-500/50 hover:bg-gradient-to-br hover:from-blue-900/30 hover:to-purple-900/30 transition-all duration-300">
 							<h3 className="text-lg font-semibold mb-4 text-blue-300">使用提示</h3>
 
 							<ul className="space-y-2 text-sm text-blue-200">

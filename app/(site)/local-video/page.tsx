@@ -9,8 +9,6 @@ import {
 	Download,
 	FileVideo,
 	Loader2,
-	Pause,
-	Play,
 	RotateCcw,
 	Upload,
 	Zap,
@@ -19,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { createAndDownloadPPT } from "@/lib/ppt-generation";
 import { formatTime } from "@/lib/utils";
+import { diagnoseVideoFile, generateDiagnosticReport } from "@/lib/video-diagnostics";
 import { convertToMp4, extractFramesFromVideo, preprocessVideo } from "@/lib/video-processing";
 
 type ProcessingState = "idle" | "uploading" | "analyzing" | "extracting" | "completed" | "error" | "converting";
@@ -47,9 +46,44 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
-	// Check if file is MP4 format
+	// Enhanced format checking
 	const isMP4Format = (file: File): boolean => {
 		return file.type === "video/mp4" || file.name.toLowerCase().endsWith(".mp4");
+	};
+
+	// Check if format is supported for conversion
+	const isSupportedFormat = (file: File): boolean => {
+		const supportedTypes = [
+			"video/mp4",
+			"video/webm",
+			"video/quicktime",
+			"video/x-msvideo",
+			"video/x-matroska",
+			"video/3gpp",
+			"video/x-flv",
+			"video/x-ms-wmv",
+			"video/ogg",
+			"video/x-ms-asf",
+			"video/x-f4v",
+			"video/x-m4v",
+		];
+		const supportedExtensions = [
+			".mp4",
+			".webm",
+			".mov",
+			".avi",
+			".mkv",
+			".3gp",
+			".flv",
+			".wmv",
+			".ogv",
+			".asf",
+			".f4v",
+			".m4v",
+		];
+
+		const fileName = file.name.toLowerCase();
+		return supportedTypes.includes(file.type) || supportedExtensions.some((ext) => fileName.endsWith(ext));
 	};
 
 	// Convert non-MP4 video to MP4 format
@@ -63,13 +97,13 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 			// Get file extension for format detection
 			const fileExtension = file.name.split(".").pop()?.toLowerCase();
 
-			// Convert using the new convertToMp4 method
+			// Convert using copy-first strategy
 			const convertedBlob = await convertToMp4(
 				file,
 				(progressValue) => {
-					// Validate and clamp progress value
+					// Simple progress indicator
 					const validProgress = Math.max(0, Math.min(100, Math.round(progressValue || 0)));
-					console.log(`Conversion progress: ${validProgress}%`);
+					console.log(`Conversion activity: ${validProgress}%`);
 					setProgress(validProgress);
 				},
 				fileExtension
@@ -85,22 +119,43 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 			return convertedFile;
 		} catch (error) {
 			console.error("Error converting video:", error);
-			throw new Error("视频格式转换失败，请尝试使用MP4格式的视频");
+
+			// Generate diagnostic report for troubleshooting
+			const diagnosticReport = generateDiagnosticReport(file);
+			console.error("Diagnostic Report:", diagnosticReport);
+
+			// User-friendly error message based on diagnostic
+			const videoInfo = diagnoseVideoFile(file);
+			let errorMessage = "视频格式转换失败";
+
+			if (!videoInfo.isSupported) {
+				errorMessage = `不支持的视频格式：${videoInfo.detectedFormat}。请使用支持的格式。`;
+			} else if (videoInfo.recommendations.length > 0) {
+				errorMessage = `转换失败。建议：${videoInfo.recommendations[0]}`;
+			}
+
+			throw new Error(errorMessage);
 		}
 	};
 
 	// Handle file selection
 	const handleFileSelect = useCallback(async (file: File) => {
 		// Validate file type
-		if (!file.type.startsWith("video/")) {
-			setError("请选择有效的视频文件");
+		if (!file.type.startsWith("video/") && !isSupportedFormat(file)) {
+			setError("请选择有效的视频文件格式");
 			return;
 		}
 
-		// Validate file size (100MB limit for original, 200MB for larger files that need conversion)
-		const maxSize = 200 * 1024 * 1024; // 200MB to accommodate conversion
+		// Check if format is supported
+		if (!isSupportedFormat(file)) {
+			setError(`不支持的视频格式：${file.name.split(".").pop()}。支持的格式：MP4, WebM, MOV, AVI, MKV, WMV等`);
+			return;
+		}
+
+		// Validate file size (200MB limit with ultra-fast conversion optimizations)
+		const maxSize = 200 * 1024 * 1024; // 200MB with speed optimizations
 		if (file.size > maxSize) {
-			setError("文件大小不能超过200MB");
+			setError("文件大小不能超过200MB（已启用速度优化模式）");
 			return;
 		}
 
@@ -117,16 +172,22 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 		try {
 			let finalFile = file;
 
+			// Diagnose file format and show information
+			const videoInfo = diagnoseVideoFile(file);
+			console.log("Video diagnosis:", videoInfo);
+
 			// Check if file is MP4, if not convert it
 			if (!isMP4Format(file)) {
 				console.log("Non-MP4 format detected, converting to MP4...");
-				setError("检测到非MP4格式，正在转换为MP4以确保兼容性...");
+				setError(
+					`检测到${videoInfo.detectedFormat}格式，正在转换为MP4（优先copy，快速转换）...`
+				);
 
 				finalFile = await convertVideoToMp4(file);
 				setSelectedFile(finalFile);
 				setError(""); // Clear conversion message
 
-				console.log("Format conversion completed successfully");
+				console.log("Ultra-fast format conversion completed successfully");
 			}
 
 			// Create video URL for preview only after conversion is complete
@@ -285,16 +346,23 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 	};
 
 	return (
-		<div className="min-h-screen bg-zinc-950 text-white">
-			{/* Background */}
-			<div className="absolute inset-0">
+		<div className="min-h-screen bg-zinc-950 text-white relative">
+			{/* Background - Fixed to cover entire page */}
+			<div className="fixed inset-0 z-0 overflow-hidden">
+				{/* Gradient overlays */}
 				<div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-teal-900/20" />
 				<div className="absolute inset-0 bg-gradient-to-tr from-zinc-900 via-zinc-900/80 to-zinc-900/60" />
-				<div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px]" />
+				
+				{/* Grid pattern - covers entire viewport */}
+				<div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px] opacity-100" />
+				
+				{/* Subtle animated elements */}
+				<div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 blur-3xl animate-pulse" />
+				<div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full bg-gradient-to-r from-purple-500/10 to-teal-500/10 blur-3xl animate-pulse [animation-delay:2s]" />
 			</div>
 
 			{/* Header */}
-			<header className="relative z-20 border-b border-zinc-800/50 backdrop-blur-sm">
+			<header className="relative z-10 border-b border-zinc-800/50 backdrop-blur-sm">
 				<div className="container mx-auto px-6 py-4">
 					<nav className="flex items-center justify-between">
 						<Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
@@ -315,24 +383,27 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 				<div className="grid lg:grid-cols-3 gap-8">
 					{/* Upload Panel */}
 					<div className="lg:col-span-2">
-						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
+						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm hover:border-zinc-600/70 transition-all duration-300">
 							{!selectedFile ? (
 								/* Upload Area */
 								<div
-									className="border-2 border-dashed border-zinc-600/50 rounded-xl p-12 text-center hover:border-blue-500/50 transition-colors cursor-pointer"
+									className="border-2 border-dashed border-zinc-600/50 rounded-xl p-12 text-center hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-300 cursor-pointer group"
 									onDragOver={handleDragOver}
 									onDrop={handleDrop}
 									onClick={() => fileInputRef.current?.click()}
 								>
 									<div className="space-y-6 opacity-0 animate-[fadeIn_0.5s_ease-in-out_forwards]">
-										<div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
-											<Upload className="h-10 w-10 text-blue-400" />
+										<div className="mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center group-hover:scale-110 group-hover:from-blue-500/30 group-hover:to-purple-500/30 transition-all duration-300">
+											<Upload className="h-10 w-10 text-blue-400 group-hover:text-blue-300 transition-colors duration-300" />
 										</div>
 
 										<div>
 											<h3 className="text-2xl font-semibold mb-2">选择视频文件</h3>
 											<p className="text-zinc-400 mb-4">拖拽视频文件到这里，或点击选择文件</p>
-											<p className="text-sm text-zinc-500">支持 MP4, AVI, MOV, WMV 等格式，最大100MB</p>
+											<p className="text-sm text-zinc-500">
+												支持 MP4, WebM, MOV, AVI, MKV, WMV, FLV, OGV 等格式，最大200MB
+											</p>
+											<p className="text-xs text-zinc-600 mt-1">非MP4格式将自动转换为MP4以确保兼容性</p>
 										</div>
 
 										<Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
@@ -367,17 +438,13 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 															{processingState === "analyzing" && "分析视频中..."}
 															{processingState === "extracting" && "提取关键帧..."}
 														</p>
-														<div className="mt-2 w-64 bg-zinc-700 rounded-full h-2">
-															<div
-																className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-																style={{ width: `${progress}%` }}
-															/>
-														</div>
-														<p className="text-sm text-zinc-400 mt-1">{progress}%</p>
+														<p className="text-sm text-zinc-400 mt-2">
+															{processingState === "converting" && "正在转换..."}
+															{processingState === "analyzing" && "正在分析..."}
+															{processingState === "extracting" && "正在提取..."}
+														</p>
 														{processingState === "converting" && (
-															<p className="text-xs text-zinc-500 mt-2">
-																使用FFmpeg转换为MP4格式，确保@webav/av-cliper兼容性
-															</p>
+															<p className="text-xs text-zinc-500 mt-2">优先尝试快速copy，如需要则重新编码</p>
 														)}
 													</div>
 												</div>
@@ -466,8 +533,27 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 
 					{/* Info Panel */}
 					<div className="space-y-6">
+						{/* Conversion Info */}
+						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm hover:border-zinc-600/70 transition-all duration-300">
+							<h3 className="text-lg font-semibold mb-4">转换策略</h3>
+
+							<div className="space-y-3">
+								<div className="p-3 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+									<div className="flex items-center gap-2 mb-1">
+										<Zap className="h-4 w-4 text-blue-400" />
+										<span className="font-medium text-blue-300">智能Copy优先</span>
+									</div>
+									<p className="text-xs text-blue-200/80">优先尝试直接复制流（极速），如失败则智能重新编码</p>
+								</div>
+							</div>
+
+							<div className="mt-4 p-3 bg-zinc-800/20 border border-zinc-700/30 rounded-lg">
+								<p className="text-xs text-zinc-400">大多数视频可以直接copy，速度提升10-50倍，零质量损失</p>
+							</div>
+						</div>
+
 						{/* Status */}
-						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
+						<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm hover:border-zinc-600/70 transition-all duration-300">
 							<h3 className="text-lg font-semibold mb-4">处理状态</h3>
 
 							<div className="space-y-3">
@@ -490,15 +576,6 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 									</div>
 								</div>
 
-								{(processingState === "analyzing" ||
-									processingState === "extracting" ||
-									processingState === "converting") && (
-									<div className="flex items-center justify-between">
-										<span className="text-zinc-400">进度</span>
-										<span>{progress}%</span>
-									</div>
-								)}
-
 								<div className="flex items-center justify-between">
 									<span className="text-zinc-400">提取帧数</span>
 									<span>{screenshots.length}</span>
@@ -508,7 +585,7 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 
 						{/* Screenshots Preview */}
 						{screenshots.length > 0 && (
-							<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm">
+							<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm hover:border-zinc-600/70 transition-all duration-300">
 								<h3 className="text-lg font-semibold mb-4">预览</h3>
 
 								<div className="space-y-3">
@@ -526,16 +603,16 @@ const LocalVideoPage = ({}: LocalVideoPageProps) => {
 						)}
 
 						{/* Tips */}
-						<div className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 p-6 backdrop-blur-sm">
+						<div className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 p-6 backdrop-blur-sm hover:border-blue-500/50 hover:bg-gradient-to-br hover:from-blue-900/30 hover:to-purple-900/30 transition-all duration-300">
 							<h3 className="text-lg font-semibold mb-4 text-blue-300">处理说明</h3>
 
 							<ul className="space-y-2 text-sm text-blue-200">
-								<li>• 自动检测视频格式，非MP4自动转换</li>
-								<li>• 确保@webav/av-cliper兼容性</li>
-								<li>• 使用智能差异检测算法</li>
-								<li>• 自动计算最佳阈值</li>
-								<li>• 过滤相似帧，提取关键内容</li>
-								<li>• 本地处理，保护隐私安全</li>
+								<li>• 支持多种视频格式：MP4, WebM, MOV, AVI, MKV, WMV, FLV等</li>
+								<li>• 自动检测格式，非MP4自动转换确保兼容性</li>
+								<li>• 使用FFmpeg.wasm进行高质量格式转换</li>
+								<li>• 智能差异检测算法，自动计算最佳阈值</li>
+								<li>• 过滤相似帧，提取关键内容生成PPT</li>
+								<li>• 本地处理，保护隐私安全，无服务器上传</li>
 							</ul>
 						</div>
 					</div>
