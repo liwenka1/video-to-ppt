@@ -124,19 +124,19 @@ video-to-ppt/
 ```typescript
 // 计算帧间差异
 function calculateImageDifference(imgData1: ImageData, imgData2: ImageData): number {
-  let sumOfSquares = 0;
-  const length = imgData1.data.length;
+	let sumOfSquares = 0;
+	const length = imgData1.data.length;
 
-  for (let i = 0; i < length; i += 4) {
-    // 转换为亮度值
-    const luminance1 = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    const luminance2 = 0.2126 * r2 + 0.7152 * g2 + 0.0722 * b2;
+	for (let i = 0; i < length; i += 4) {
+		// 转换为亮度值
+		const luminance1 = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		const luminance2 = 0.2126 * r2 + 0.7152 * g2 + 0.0722 * b2;
 
-    const diff = luminance1 - luminance2;
-    sumOfSquares += diff * diff;
-  }
+		const diff = luminance1 - luminance2;
+		sumOfSquares += diff * diff;
+	}
 
-  return Math.sqrt(sumOfSquares / (length / 4));
+	return Math.sqrt(sumOfSquares / (length / 4));
 }
 ```
 
@@ -145,17 +145,17 @@ function calculateImageDifference(imgData1: ImageData, imgData2: ImageData): num
 ```typescript
 // 预处理计算最佳阈值
 async function preprocessVideo(video: HTMLVideoElement, canvas: HTMLCanvasElement): Promise<number> {
-  // 采样视频帧
-  const sampleCount = Math.min(50, Math.max(20, Math.floor(duration / 10)));
+	// 采样视频帧
+	const sampleCount = Math.min(50, Math.max(20, Math.floor(duration / 10)));
 
-  // 计算差异度分布
-  const differences: number[] = [];
+	// 计算差异度分布
+	const differences: number[] = [];
 
-  // 使用中位数作为基准阈值
-  const medianDiff = sortedDifferences[Math.floor(differences.length / 2)];
+	// 使用中位数作为基准阈值
+	const medianDiff = sortedDifferences[Math.floor(differences.length / 2)];
 
-  // 设置合理边界
-  return Math.max(10, Math.min(medianDiff, 60));
+	// 设置合理边界
+	return Math.max(10, Math.min(medianDiff, 60));
 }
 ```
 
