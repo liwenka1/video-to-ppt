@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
 	ArrowRight,
-	ChevronDown,
 	Download,
 	FileText,
 	Globe,
@@ -27,14 +26,19 @@ interface FeatureCardProps {
 }
 
 const FeatureCard = ({ icon, title, description, delay }: FeatureCardProps) => (
-	<div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-8 backdrop-blur-sm hover:border-blue-500/50 transition-all duration-300">
+	<div
+		className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-8 backdrop-blur-sm hover:border-blue-500/50 transition-all duration-300 opacity-0 animate-[fadeInUp_0.6s_ease-out_forwards]"
+		style={{ animationDelay: `${delay}s` }}
+	>
 		<div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 		<div className="relative z-10">
-			<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
+			<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 transform group-hover:scale-110 transition-transform duration-300">
 				{icon}
 			</div>
-			<h3 className="mb-3 text-xl font-semibold text-white">{title}</h3>
-			<p className="text-zinc-400">{description}</p>
+			<h3 className="mb-3 text-xl font-semibold text-white group-hover:text-blue-300 transition-colors duration-300">
+				{title}
+			</h3>
+			<p className="text-zinc-400 group-hover:text-zinc-300 transition-colors duration-300">{description}</p>
 		</div>
 	</div>
 );
@@ -219,42 +223,42 @@ const HomePage = () => {
 							icon={<Video className="h-6 w-6 text-white" />}
 							title="智能视频分析"
 							description="使用WebAV技术进行深度视频分析，自动识别关键帧和重要内容节点"
-							delay={0}
+							delay={0.1}
 						/>
 
 						<FeatureCard
 							icon={<Zap className="h-6 w-6 text-white" />}
 							title="高效内容提取"
 							description="基于FFmpeg的视频处理引擎，快速提取高质量图像和关键信息"
-							delay={0.1}
+							delay={0.2}
 						/>
 
 						<FeatureCard
 							icon={<FileText className="h-6 w-6 text-white" />}
 							title="自动PPT生成"
 							description="智能布局算法，自动生成专业美观的PowerPoint演示文稿"
-							delay={0.2}
+							delay={0.3}
 						/>
 
 						<FeatureCard
 							icon={<Globe className="h-6 w-6 text-white" />}
 							title="多平台支持"
 							description="支持YouTube、Bilibili等主流视频平台，一键导入在线视频"
-							delay={0.3}
+							delay={0.4}
 						/>
 
 						<FeatureCard
 							icon={<Monitor className="h-6 w-6 text-white" />}
 							title="实时录屏"
 							description="内置高清录屏功能，边录制边处理，实时生成演示内容"
-							delay={0.4}
+							delay={0.5}
 						/>
 
 						<FeatureCard
 							icon={<Shield className="h-6 w-6 text-white" />}
 							title="隐私保护"
 							description="本地处理技术，数据不上传服务器，确保您的隐私安全"
-							delay={0.5}
+							delay={0.6}
 						/>
 					</div>
 				</div>
