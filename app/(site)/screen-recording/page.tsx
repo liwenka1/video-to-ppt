@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
-	AlertCircle,
 	ArrowLeft,
 	Camera,
 	CheckCircle,
@@ -25,9 +25,12 @@ import { captureAndFilterScreenshot } from "@/lib/video-processing";
 
 type RecordingState = "idle" | "ready" | "recording" | "paused" | "processing" | "completed";
 
-interface ScreenRecordingPageProps {}
+interface ScreenshotStats {
+	total: number;
+	saved: number;
+}
 
-const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
+const ScreenRecordingPage = () => {
 	// Recording state
 	const [recordingState, setRecordingState] = useState<RecordingState>("idle");
 	const [recordingTime, setRecordingTime] = useState<number>(0);
@@ -50,34 +53,126 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 
 	// Screenshot capture
 	const [screenshots, setScreenshots] = useState<string[]>([]);
-	const [currentScreenshotIndex, setCurrentScreenshotIndex] = useState<number>(-1);
-	const [screenshotStats, setScreenshotStats] = useState({ total: 0, saved: 0 });
+	const [screenshotStats, setScreenshotStats] = useState<ScreenshotStats>({ total: 0, saved: 0 });
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const lastImageDataRef = useRef<ImageData | null>(null);
 	const diffThreshold = 30;
 
 	// Video output
-	const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
 	const [videoUrl, setVideoUrl] = useState<string>("");
 
+	// Cleanup function
+	const cleanup = useCallback(() => {
+		if (mediaStream) {
+			mediaStream.getTracks().forEach((track) => track.stop());
+			setMediaStream(null);
+		}
+		if (timerRef.current) {
+			clearInterval(timerRef.current);
+			timerRef.current = null;
+		}
+		if (videoRef.current) {
+			videoRef.current.srcObject = null;
+		}
+	}, [mediaStream]);
+
+	// Timer functions
+	const startTimer = useCallback(() => {
+		const startTime = Date.now() - recordingTime * 1000;
+		timerRef.current = setInterval(() => {
+			setRecordingTime(Math.floor((Date.now() - startTime) / 1000));
+		}, 1000);
+	}, [recordingTime]);
+
+	const stopTimer = useCallback(() => {
+		if (timerRef.current) {
+			clearInterval(timerRef.current);
+			timerRef.current = null;
+		}
+	}, []);
+
+	// Screenshot capture function
+	const captureScreenshot = useCallback(() => {
+		const video = videoRef.current;
+		const canvas = canvasRef.current;
+
+		if (!video || !canvas) {
+			console.warn("视频或画布元素不可用");
+			return;
+		}
+
+		// 检查视频是否已加载并且有内容
+		if (video.videoWidth === 0 || video.videoHeight === 0) {
+			console.warn(`视频尺寸为0 (${video.videoWidth}x${video.videoHeight})，跳过截图`);
+			console.warn(`视频状态: readyState=${video.readyState}, currentTime=${video.currentTime}`);
+			return;
+		}
+
+		if (video.readyState < 2) {
+			console.warn(`视频未准备好 (readyState=${video.readyState})，跳过截图`);
+			return;
+		}
+
+		console.log(`捕获截图，视频尺寸: ${video.videoWidth}x${video.videoHeight}, readyState: ${video.readyState}`);
+
+		try {
+			captureAndFilterScreenshot({
+				videoRef: videoRef as React.RefObject<HTMLVideoElement>,
+				canvasRef: canvasRef as React.RefObject<HTMLCanvasElement>,
+				lastImageDataRef,
+				diffThreshold,
+				onScreenshotCaptured: (screenshot) => {
+					console.log("新截图已保存");
+					setScreenshots((prev) => {
+						const newScreenshots = [...prev, screenshot];
+						return newScreenshots;
+					});
+					setScreenshotStats((prev) => ({ ...prev, saved: prev.saved + 1 }));
+				},
+				onStatsUpdate: () => {
+					setScreenshotStats((prev) => ({ ...prev, total: prev.total + 1 }));
+				},
+			});
+		} catch (error) {
+			console.error("截图捕获失败:", error);
+		}
+	}, [diffThreshold]);
+
+	// Screenshot capture during recording
+	const startScreenshotCapture = useCallback(() => {
+		console.log("开始截图捕获...");
+
+		// 延迟启动截图，等待视频完全准备好
+		setTimeout(() => {
+			const captureInterval = setInterval(() => {
+				if (recordingStateRef.current === "recording") {
+					captureScreenshot();
+				} else {
+					console.log("停止截图捕获，当前状态:", recordingStateRef.current);
+					clearInterval(captureInterval);
+				}
+			}, 3000); // 每3秒捕获一次
+		}, 2000); // 等待2秒让视频完全准备好
+	}, [captureScreenshot]);
+
 	// Start recording preparation
-	const handleStartPrepare = async () => {
+	const handleStartPrepare = useCallback(async () => {
 		try {
 			console.log("开始准备录制屏幕...");
 
 			// 检查浏览器支持
-			if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+			if (!navigator.mediaDevices?.getDisplayMedia) {
 				throw new Error("您的浏览器不支持屏幕录制功能");
 			}
 
-			const displayMediaOptions = {
+			const displayMediaOptions: DisplayMediaStreamOptions = {
 				video: {
-					cursor: "always" as const,
-					displaySurface: "monitor" as const,
+					cursor: "always",
+					displaySurface: "monitor",
 					width: { ideal: 1920 },
 					height: { ideal: 1080 },
 					frameRate: { ideal: 30 },
-				},
+				} as MediaTrackConstraints,
 				audio: true,
 			};
 
@@ -114,8 +209,6 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 			}
 
 			setMediaStream(finalStream);
-
-			// 先强制设置状态为ready，确保视频元素渲染
 			setRecordingState("ready");
 
 			// 等待组件重新渲染后再设置视频元素
@@ -125,7 +218,7 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 					videoRef.current.srcObject = finalStream;
 					videoRef.current.muted = true; // 避免音频反馈
 
-					// 立即尝试播放
+					// 播放视频
 					const playVideo = async () => {
 						try {
 							console.log("尝试播放视频...");
@@ -158,19 +251,21 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 					}
 
 					// 监听流结束事件
-					finalStream.getVideoTracks()[0].addEventListener("ended", () => {
-						console.log("屏幕共享已停止");
-						setRecordingState("idle");
-						setMediaStream(null);
-					});
+					const videoTrack = finalStream.getVideoTracks()[0];
+					if (videoTrack) {
+						videoTrack.addEventListener("ended", () => {
+							console.log("屏幕共享已停止");
+							setRecordingState("idle");
+							setMediaStream(null);
+						});
+					}
 				} else {
 					console.log("视频元素仍未找到");
 				}
-			}, 200); // 增加等待时间确保组件完全渲染
+			}, 200);
 
 			// 重置截图相关状态
 			setScreenshots([]);
-			setCurrentScreenshotIndex(-1);
 			setScreenshotStats({ total: 0, saved: 0 });
 			lastImageDataRef.current = null;
 		} catch (error) {
@@ -187,100 +282,97 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 				alert("录制准备失败，请检查浏览器权限设置。");
 			}
 		}
-	};
+	}, [withAudio]);
 
 	// Start recording with stream
-	const handleStartRecording = (stream?: MediaStream) => {
-		const recordingStream = stream || mediaStream;
+	const handleStartRecording = useCallback(
+		(stream?: MediaStream) => {
+			const recordingStream = stream || mediaStream;
 
-		if (!recordingStream) {
-			alert("媒体流未准备好，请先点击准备录制");
-			return;
-		}
-
-		try {
-			console.log("开始录制...");
-
-			// 重置数据
-			recordedChunksRef.current = [];
-			setRecordingTime(0);
-
-			// 检查录制格式支持
-			const mimeTypes = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
-
-			let supportedMimeType = "";
-			for (const mimeType of mimeTypes) {
-				if (MediaRecorder.isTypeSupported(mimeType)) {
-					supportedMimeType = mimeType;
-					console.log("使用录制格式:", mimeType);
-					break;
-				}
+			if (!recordingStream) {
+				alert("媒体流未准备好，请先点击准备录制");
+				return;
 			}
 
-			if (!supportedMimeType) {
-				throw new Error("浏览器不支持视频录制格式");
-			}
+			try {
+				console.log("开始录制...");
 
-			const mediaRecorder = new MediaRecorder(recordingStream, {
-				mimeType: supportedMimeType,
-				videoBitsPerSecond: 2500000, // 2.5 Mbps
-			});
+				// 重置数据
+				recordedChunksRef.current = [];
+				setRecordingTime(0);
 
-			mediaRecorderRef.current = mediaRecorder;
+				// 检查录制格式支持
+				const mimeTypes = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
 
-			mediaRecorder.ondataavailable = (event) => {
-				console.log("录制数据可用:", event.data.size, "bytes");
-				if (event.data.size > 0) {
-					recordedChunksRef.current.push(event.data);
+				let supportedMimeType = "";
+				for (const mimeType of mimeTypes) {
+					if (MediaRecorder.isTypeSupported(mimeType)) {
+						supportedMimeType = mimeType;
+						console.log("使用录制格式:", mimeType);
+						break;
+					}
 				}
-			};
 
-			mediaRecorder.onstop = () => {
-				console.log("录制停止，生成视频文件...");
-				const blob = new Blob(recordedChunksRef.current, {
-					type: supportedMimeType.split(";")[0],
+				if (!supportedMimeType) {
+					throw new Error("浏览器不支持视频录制格式");
+				}
+
+				const mediaRecorder = new MediaRecorder(recordingStream, {
+					mimeType: supportedMimeType,
+					videoBitsPerSecond: 2500000, // 2.5 Mbps
 				});
-				setVideoBlob(blob);
-				setVideoUrl(URL.createObjectURL(blob));
-				console.log("视频文件生成完成，大小:", blob.size, "bytes");
-				console.log("截图数量:", screenshots.length);
 
-				// 清理视频预览，停止媒体流
-				if (videoRef.current) {
-					videoRef.current.srcObject = null;
-				}
-				if (recordingStream) {
-					recordingStream.getTracks().forEach((track) => track.stop());
-				}
-				setMediaStream(null);
+				mediaRecorderRef.current = mediaRecorder;
 
-				setRecordingState("completed");
-			};
+				mediaRecorder.ondataavailable = (event) => {
+					console.log("录制数据可用:", event.data.size, "bytes");
+					if (event.data.size > 0) {
+						recordedChunksRef.current.push(event.data);
+					}
+				};
 
-			mediaRecorder.onerror = (event) => {
-				console.error("录制出错:", event);
-				alert("录制过程中出现错误");
-				setRecordingState("ready");
-			};
+				mediaRecorder.onstop = () => {
+					console.log("录制停止，生成视频文件...");
+					const blob = new Blob(recordedChunksRef.current, {
+						type: supportedMimeType.split(";")[0],
+					});
+					setVideoUrl(URL.createObjectURL(blob));
+					console.log("视频文件生成完成，大小:", blob.size, "bytes");
+					console.log("截图数量:", screenshots.length);
 
-			mediaRecorder.start(1000); // 每秒收集一次数据
-			setRecordingState("recording");
-			startTimer();
-			startScreenshotCapture();
-			console.log("录制已开始");
-		} catch (error) {
-			console.error("录制启动失败:", error);
-			alert(`录制启动失败: ${error instanceof Error ? error.message : "未知错误"}`);
-		}
-	};
+					// 清理视频预览，停止媒体流
+					if (videoRef.current) {
+						videoRef.current.srcObject = null;
+					}
+					if (recordingStream) {
+						recordingStream.getTracks().forEach((track) => track.stop());
+					}
+					setMediaStream(null);
 
-	// Handle button click to start recording
-	const handleStartRecordingClick = () => {
-		handleStartRecording();
-	};
+					setRecordingState("completed");
+				};
+
+				mediaRecorder.onerror = (event) => {
+					console.error("录制出错:", event);
+					alert("录制过程中出现错误");
+					setRecordingState("ready");
+				};
+
+				mediaRecorder.start(1000); // 每秒收集一次数据
+				setRecordingState("recording");
+				startTimer();
+				startScreenshotCapture();
+				console.log("录制已开始");
+			} catch (error) {
+				console.error("录制启动失败:", error);
+				alert(`录制启动失败: ${error instanceof Error ? error.message : "未知错误"}`);
+			}
+		},
+		[mediaStream, screenshots.length, startTimer, startScreenshotCapture]
+	);
 
 	// Pause/Resume recording
-	const handlePauseResume = () => {
+	const handlePauseResume = useCallback(() => {
 		if (!mediaRecorderRef.current) return;
 
 		if (recordingState === "recording") {
@@ -292,99 +384,20 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 			setRecordingState("recording");
 			startTimer();
 		}
-	};
+	}, [recordingState, stopTimer, startTimer]);
 
 	// Stop recording
-	const handleStopRecording = () => {
+	const handleStopRecording = useCallback(() => {
 		if (mediaRecorderRef.current) {
 			mediaRecorderRef.current.stop();
 		}
 
 		stopTimer();
 		setRecordingState("processing");
-	};
-
-	// Timer functions
-	const startTimer = () => {
-		const startTime = Date.now() - recordingTime * 1000;
-		timerRef.current = setInterval(() => {
-			setRecordingTime(Math.floor((Date.now() - startTime) / 1000));
-		}, 1000);
-	};
-
-	const stopTimer = () => {
-		if (timerRef.current) {
-			clearInterval(timerRef.current);
-			timerRef.current = null;
-		}
-	};
-
-	// Screenshot capture during recording
-	const startScreenshotCapture = () => {
-		console.log("开始截图捕获...");
-
-		// 延迟启动截图，等待视频完全准备好
-		setTimeout(() => {
-			const captureInterval = setInterval(() => {
-				if (recordingStateRef.current === "recording") {
-					captureScreenshot();
-				} else {
-					console.log("停止截图捕获，当前状态:", recordingStateRef.current);
-					clearInterval(captureInterval);
-				}
-			}, 3000); // 每3秒捕获一次
-		}, 2000); // 等待2秒让视频完全准备好
-	};
-
-	const captureScreenshot = () => {
-		const video = videoRef.current;
-		const canvas = canvasRef.current;
-
-		if (!video || !canvas) {
-			console.warn("视频或画布元素不可用");
-			return;
-		}
-
-		// 检查视频是否已加载并且有内容
-		if (video.videoWidth === 0 || video.videoHeight === 0) {
-			console.warn(`视频尺寸为0 (${video.videoWidth}x${video.videoHeight})，跳过截图`);
-			console.warn(`视频状态: readyState=${video.readyState}, currentTime=${video.currentTime}`);
-			return;
-		}
-
-		if (video.readyState < 2) {
-			console.warn(`视频未准备好 (readyState=${video.readyState})，跳过截图`);
-			return;
-		}
-
-		console.log(`捕获截图，视频尺寸: ${video.videoWidth}x${video.videoHeight}, readyState: ${video.readyState}`);
-
-		try {
-			captureAndFilterScreenshot({
-				videoRef: { current: video },
-				canvasRef: { current: canvas },
-				lastImageDataRef,
-				diffThreshold,
-				onScreenshotCaptured: (screenshot) => {
-					console.log("新截图已保存");
-					setScreenshots((prev) => {
-						const newScreenshots = [...prev, screenshot];
-						setCurrentScreenshotIndex(newScreenshots.length - 1);
-						return newScreenshots;
-					});
-					setScreenshotStats((prev) => ({ ...prev, saved: prev.saved + 1 }));
-				},
-				onStatsUpdate: () => {
-					setScreenshotStats((prev) => ({ ...prev, total: prev.total + 1 }));
-				},
-			});
-		} catch (error) {
-			console.error("截图捕获失败:", error);
-		}
-	};
+	}, [stopTimer]);
 
 	// Download PPT
-	const handleDownloadPPT = async () => {
+	const handleDownloadPPT = useCallback(async () => {
 		try {
 			await createAndDownloadPPT(screenshots, {
 				title: "Screen Recording Analysis",
@@ -394,35 +407,35 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 			console.error("Error generating PPT:", error);
 			alert("PPT生成失败，请重试。");
 		}
-	};
+	}, [screenshots]);
+
+	// Download video
+	const handleDownloadVideo = useCallback(() => {
+		if (videoUrl) {
+			const a = document.createElement("a");
+			a.href = videoUrl;
+			a.download = `screen-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.webm`;
+			a.click();
+		}
+	}, [videoUrl]);
 
 	// Reset everything
-	const handleReset = () => {
+	const handleReset = useCallback(() => {
 		setRecordingState("idle");
 		setRecordingTime(0);
 		setScreenshots([]);
-		setCurrentScreenshotIndex(-1);
 		setScreenshotStats({ total: 0, saved: 0 });
-		setVideoBlob(null);
 		setVideoUrl("");
 
-		if (mediaStream) {
-			mediaStream.getTracks().forEach((track) => track.stop());
-			setMediaStream(null);
-		}
-
-		stopTimer();
-	};
+		cleanup();
+	}, [cleanup]);
 
 	// Cleanup on unmount
 	useEffect(() => {
 		return () => {
-			if (mediaStream) {
-				mediaStream.getTracks().forEach((track) => track.stop());
-			}
-			stopTimer();
+			cleanup();
 		};
-	}, [mediaStream]);
+	}, [cleanup]);
 
 	return (
 		<div className="min-h-screen bg-zinc-950 text-white relative">
@@ -431,10 +444,10 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 				{/* Gradient overlays */}
 				<div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-teal-900/20" />
 				<div className="absolute inset-0 bg-gradient-to-tr from-zinc-900 via-zinc-900/80 to-zinc-900/60" />
-				
+
 				{/* Grid pattern - covers entire viewport */}
 				<div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px] opacity-100" />
-				
+
 				{/* Subtle animated elements */}
 				<div className="absolute top-1/3 left-1/4 w-96 h-96 rounded-full bg-gradient-to-r from-red-500/10 to-orange-500/10 blur-3xl animate-pulse" />
 				<div className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 blur-3xl animate-pulse [animation-delay:3s]" />
@@ -570,7 +583,7 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 
 									{recordingState === "ready" && (
 										<Button
-											onClick={handleStartRecordingClick}
+											onClick={() => handleStartRecording()}
 											className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
 										>
 											<Play className="mr-2 h-5 w-5" />
@@ -634,14 +647,7 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 											</Button>
 
 											<Button
-												onClick={() => {
-													if (videoUrl) {
-														const a = document.createElement("a");
-														a.href = videoUrl;
-														a.download = `screen-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.webm`;
-														a.click();
-													}
-												}}
+												onClick={handleDownloadVideo}
 												variant="outline"
 												className="border-zinc-700 text-white hover:bg-zinc-800"
 											>
@@ -698,6 +704,15 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 									<span className="text-zinc-400">截图数量</span>
 									<span>{screenshots.length}</span>
 								</div>
+
+								{screenshotStats.total > 0 && (
+									<div className="flex items-center justify-between">
+										<span className="text-zinc-400">截图统计</span>
+										<span className="text-sm">
+											已保存 {screenshotStats.saved} / 检测 {screenshotStats.total}
+										</span>
+									</div>
+								)}
 							</div>
 						</div>
 
@@ -709,7 +724,14 @@ const ScreenRecordingPage = ({}: ScreenRecordingPageProps) => {
 								<div className="space-y-3">
 									{screenshots.slice(-3).map((screenshot, index) => (
 										<div key={index} className="aspect-video rounded-lg overflow-hidden border border-zinc-600/30">
-											<img src={screenshot} alt={`Screenshot ${index + 1}`} className="w-full h-full object-cover" />
+											<Image
+												src={screenshot}
+												alt={`Screenshot ${index + 1}`}
+												className="w-full h-full object-cover"
+												width={320}
+												height={180}
+												unoptimized
+											/>
 										</div>
 									))}
 								</div>
