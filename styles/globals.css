@@ -119,6 +119,10 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+	[role="button"],
+	button {
+		@apply cursor-pointer;
+	}
 }
 
 /* Custom animations for video processing feedback */
