@@ -8,6 +8,8 @@ import {
 	Camera,
 	CheckCircle,
 	Download,
+	Eye,
+	Images,
 	Loader2,
 	Mic,
 	MicOff,
@@ -719,11 +721,38 @@ const ScreenRecordingPage = () => {
 						{/* Screenshots Preview */}
 						{screenshots.length > 0 && (
 							<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-6 backdrop-blur-sm hover:border-zinc-600/70 transition-all duration-300">
-								<h3 className="text-lg font-semibold mb-4">截图预览</h3>
+								<div className="flex items-center justify-between mb-4">
+									<h3 className="text-lg font-semibold">截图预览 ({screenshots.length}张)</h3>
+									<div className="flex gap-2">
+										<Button
+											onClick={() => {
+												// 批量下载功能
+												screenshots.forEach((screenshot, index) => {
+													const link = document.createElement("a");
+													link.href = screenshot;
+													link.download = `screenshot_${String(index + 1).padStart(3, "0")}.png`;
+													document.body.appendChild(link);
+													link.click();
+													document.body.removeChild(link);
+												});
+											}}
+											variant="outline"
+											size="sm"
+											className="border-zinc-700 text-white hover:bg-zinc-800"
+										>
+											<Images className="mr-1 h-4 w-4" />
+											下载全部
+										</Button>
+									</div>
+								</div>
 
-								<div className="space-y-3">
-									{screenshots.slice(-3).map((screenshot, index) => (
-										<div key={index} className="aspect-video rounded-lg overflow-hidden border border-zinc-600/30">
+								{/* 滚动预览区域 */}
+								<div className="max-h-96 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-800">
+									{screenshots.map((screenshot, index) => (
+										<div
+											key={index}
+											className="aspect-video rounded-lg overflow-hidden border border-zinc-600/30 group relative"
+										>
 											<Image
 												src={screenshot}
 												alt={`Screenshot ${index + 1}`}
@@ -732,13 +761,39 @@ const ScreenRecordingPage = () => {
 												height={180}
 												unoptimized
 											/>
+											<div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+												<div className="flex gap-2">
+													<Button
+														onClick={() => {
+															const link = document.createElement("a");
+															link.href = screenshot;
+															link.download = `screenshot_${String(index + 1).padStart(3, "0")}.png`;
+															document.body.appendChild(link);
+															link.click();
+															document.body.removeChild(link);
+														}}
+														size="sm"
+														variant="secondary"
+													>
+														<Download className="h-4 w-4" />
+													</Button>
+													<Button
+														onClick={() => {
+															window.open(screenshot, "_blank");
+														}}
+														size="sm"
+														variant="secondary"
+													>
+														<Eye className="h-4 w-4" />
+													</Button>
+												</div>
+											</div>
+											<div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+												#{index + 1}
+											</div>
 										</div>
 									))}
 								</div>
-
-								{screenshots.length > 3 && (
-									<p className="text-sm text-zinc-400 mt-3 text-center">还有 {screenshots.length - 3} 张截图...</p>
-								)}
 							</div>
 						)}
 
