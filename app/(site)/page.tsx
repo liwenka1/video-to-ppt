@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
 	ArrowRight,
 	Download,
+	ExternalLink,
 	FileText,
+	Github,
 	Globe,
 	Monitor,
-	Play,
 	Shield,
 	Sparkles,
 	Upload,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ProjectInfo, ResumeData } from "@/data/resume";
 
 interface FeatureCardProps {
 	icon: React.ReactNode;
@@ -95,12 +98,12 @@ const HomePage = () => {
 			<header className="relative z-10 border-b border-zinc-800/50 backdrop-blur-sm">
 				<div className="container mx-auto px-6 py-4">
 					<nav className="flex items-center justify-between">
-						<div className="flex items-center space-x-2">
+						<Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
 							<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
 								<Video className="h-4 w-4" />
 							</div>
-							<span className="text-xl font-bold">Video2PPT</span>
-						</div>
+							<span className="text-xl font-bold">VideoToPPT</span>
+						</Link>
 
 						<div className="flex items-center space-x-6">
 							<Link href="#features" className="text-zinc-400 hover:text-white transition-colors">
@@ -109,9 +112,11 @@ const HomePage = () => {
 							<Link href="#how-it-works" className="text-zinc-400 hover:text-white transition-colors">
 								使用方法
 							</Link>
-							<Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
-								开始使用
-							</Button>
+							<Link href="#about">
+								<Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+									关于项目
+								</Button>
+							</Link>
 						</div>
 					</nav>
 				</div>
@@ -173,10 +178,15 @@ const HomePage = () => {
 							<div className="relative">
 								{/* Main demo card */}
 								<div className="relative rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-8 backdrop-blur-sm">
-									<div className="aspect-video rounded-lg bg-gradient-to-br from-blue-900/30 to-purple-900/30 border border-zinc-600/30 overflow-hidden mb-6">
-										<div className="flex h-full items-center justify-center">
-											<Play className="h-16 w-16 text-zinc-400" />
-										</div>
+									<div className="aspect-video rounded-lg border border-zinc-600/30 overflow-hidden mb-6">
+										<Image
+											src="/hero.png"
+											alt="VideoToPPT AI视频智能剪切转换演示"
+											width={800}
+											height={450}
+											className="w-full h-full object-cover"
+											priority
+										/>
 									</div>
 
 									<div className="space-y-3">
@@ -347,18 +357,104 @@ const HomePage = () => {
 				</div>
 			</section>
 
+			{/* Project Info Section */}
+			<section id="about" className="relative z-10 py-20 border-t border-zinc-800/50">
+				<div className="container mx-auto px-6">
+					<div className="grid md:grid-cols-2 gap-12 items-center">
+						<div>
+							<h2 className="text-3xl lg:text-4xl font-bold mb-6">
+								<span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+									开源项目
+								</span>
+							</h2>
+							<p className="text-lg text-zinc-400 mb-6">{ProjectInfo.description}</p>
+							<div className="flex flex-wrap gap-2 mb-6">
+								{ProjectInfo.technologies.map((tech) => (
+									<span
+										key={tech}
+										className="px-3 py-1 rounded-full bg-zinc-800/50 border border-zinc-700/50 text-sm text-zinc-300"
+									>
+										{tech}
+									</span>
+								))}
+							</div>
+							<div className="flex flex-col sm:flex-row gap-4">
+								<a href={ProjectInfo.repository.url} target="_blank" rel="noopener noreferrer" className="inline-flex">
+									<Button className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700">
+										<Github className="mr-2 h-5 w-5" />
+										查看源码
+										<ExternalLink className="ml-2 h-4 w-4" />
+									</Button>
+								</a>
+								<Button variant="outline" className="border-zinc-700 text-white hover:bg-zinc-800">
+									<span className="mr-2">⭐</span>
+									Star on GitHub
+								</Button>
+							</div>
+						</div>
+
+						<div className="relative">
+							<div className="rounded-2xl bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 border border-zinc-700/50 p-8 backdrop-blur-sm">
+								<div className="flex items-center justify-between mb-6">
+									<div className="flex items-center space-x-3">
+										<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-blue-600">
+											<Github className="h-5 w-5 text-white" />
+										</div>
+										<div>
+											<h3 className="font-semibold text-white">{ProjectInfo.name}</h3>
+											<p className="text-sm text-zinc-400">{ProjectInfo.repository.name}</p>
+										</div>
+									</div>
+									<span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-medium border border-green-500/30">
+										{ProjectInfo.license}
+									</span>
+								</div>
+								<p className="text-zinc-400 mb-6">{ProjectInfo.description}</p>
+								<div className="space-y-2">
+									<h4 className="text-sm font-medium text-white">核心功能</h4>
+									{ProjectInfo.features.slice(0, 4).map((feature) => (
+										<div key={feature} className="flex items-center space-x-2">
+											<div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+											<span className="text-sm text-zinc-400">{feature}</span>
+										</div>
+									))}
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
 			{/* Footer */}
 			<footer className="relative z-10 border-t border-zinc-800/50 py-12">
 				<div className="container mx-auto px-6">
 					<div className="flex flex-col md:flex-row justify-between items-center">
-						<div className="flex items-center space-x-2 mb-4 md:mb-0">
+						<Link href="/" className="flex items-center space-x-2 mb-4 md:mb-0 hover:opacity-80 transition-opacity">
 							<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
 								<Video className="h-4 w-4" />
 							</div>
-							<span className="text-xl font-bold">Video2PPT</span>
-						</div>
+							<span className="text-xl font-bold">{ProjectInfo.name}</span>
+						</Link>
 
-						<div className="text-zinc-400 text-sm">© 2024 Video2PPT. 基于WebAV和FFmpeg技术构建</div>
+						<div className="flex items-center space-x-6">
+							<div className="text-zinc-400 text-sm">© 2025 {ProjectInfo.name}. 基于WebAV和FFmpeg技术构建</div>
+							<div className="flex items-center space-x-4">
+								{Object.entries(ResumeData.contact.social).map(([key, social]) => {
+									const IconComponent = social.icon;
+									return (
+										<a
+											key={key}
+											href={social.url}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="text-zinc-400 hover:text-white transition-colors"
+										>
+											<IconComponent className="h-5 w-5" />
+										</a>
+									);
+								})}
+							</div>
+						</div>
 					</div>
 				</div>
 			</footer>
