@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import "@/styles/globals.css";
+
+import { SiteMetadata } from "@/data/resume";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -13,10 +14,7 @@ const geistMono = Geist_Mono({
 	subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-	title: "Video2PPT - 智能视频转PPT工具",
-	description: "基于 WebAV 和 FFmpeg 的现代化视频分析与 PPT 生成工具，支持屏幕录制、本地视频处理和在线视频分析",
-};
+export const metadata = SiteMetadata;
 
 export default function RootLayout({
 	children,
