@@ -119,6 +119,38 @@
 	html {
 		scroll-behavior: smooth;
 	}
+
+	/* Custom scrollbar styles */
+	.scrollbar-thin {
+		scrollbar-width: thin;
+	}
+
+	.scrollbar-thumb-zinc-600 {
+		scrollbar-color: #52525b #27272a;
+	}
+
+	.scrollbar-track-zinc-800 {
+		scrollbar-color: #52525b #27272a;
+	}
+
+	/* WebKit scrollbar styles */
+	.scrollbar-thin::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.scrollbar-thin::-webkit-scrollbar-track {
+		background: #27272a;
+		border-radius: 3px;
+	}
+
+	.scrollbar-thin::-webkit-scrollbar-thumb {
+		background: #52525b;
+		border-radius: 3px;
+	}
+
+	.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+		background: #71717a;
+	}
 	body {
 		@apply bg-background text-foreground;
 	}
