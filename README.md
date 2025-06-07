@@ -10,7 +10,7 @@
 [![WebAV](https://img.shields.io/badge/WebAV-FF6B35?style=for-the-badge&logo=webassembly&logoColor=white)](https://github.com/hughfenghen/WebAV)
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-007808?style=for-the-badge&logo=ffmpeg&logoColor=white)](https://ffmpeg.org/)
 
-[🚀 在线体验](https://video.liwenkai.fun) | [📖 使用教程](#使用教程) | [🛠️ 本地部署](#本地部署) | [🤝 贡献指南](#贡献指南)
+[🚀 在线体验](https://video.liwenkai.fun) | [📖 使用教程](#-使用教程) | [🛠️ 本地部署](#本地部署) | [🤝 贡献指南](#-贡献指南)
 
 </div>
 
